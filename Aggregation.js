@@ -48,7 +48,7 @@ function _applySell(prev, transaction) {
     unitsOwned: prev.unitsOwned - transaction.units,
     // Note that transaction.fees does not get added to the ACB on sale. It only reduces the net gains.
     // Do not add transaction.fees here.
-    totalCost: prev.totalCost - (accountAcbSoFar * transaction.units) + transaction.fees,
+    totalCost: prev.totalCost - (accountAcbSoFar * transaction.units),
   }
 }
 
