@@ -1,14 +1,6 @@
-const _IS_NODE = module?.exports;
-const {
-  _COL_DATE,
-  _COL_TICKER,
-  _COL_TYPE,
-  _COL_UNITS,
-  _COL_UNIT_PRICE,
-  _COL_FEES,
-  _COL_NTV,
-  _ALL_KNOWN_TRANSACTION_TYPES,
-} = _IS_NODE ? require("./Constants") : globalThis;
+if (typeof module !== "undefined" && module && module.exports) {
+  Object.assign(globalThis, require("./Constants"));
+}
 
 function _parseTransactionRecord(row, columnIndices) {
   const rawTransactionType = row[columnIndices[_COL_TYPE]];
@@ -54,7 +46,7 @@ function _calculateColumnIndices(titleRow) {
   }
 }
 
-if (module?.exports) {
+if (typeof module !== "undefined" && module && module.exports) {
   module.exports = {
     _parseTransactionRecord,
     _calculateColumnIndices,

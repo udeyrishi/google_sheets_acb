@@ -1,15 +1,6 @@
-const _IS_NODE = module?.exports;
-
-const {
-  _TRANSACTION_TYPE_TRF_IN,
-  _TRANSACTION_TYPE_BUY,
-  _TRANSACTION_TYPE_DRIP,
-  _TRANSACTION_TYPE_TRF_OUT,
-  _TRANSACTION_TYPE_SELL,
-  _TRANSACTION_TYPE_STAKE_REWARD,
-  _TRANSACTION_TYPE_NON_CASH_DIST,
-  _TRANSACTION_TYPE_RETURN_OF_CAPITAL,
-} = _IS_NODE ? require("./Constants") : globalThis;
+if (typeof module !== "undefined" && module && module.exports) {
+  Object.assign(globalThis, require("./Constants"));
+}
 
 function _applyBuy(prev, transaction) {
   return {
@@ -142,7 +133,7 @@ function _calculateAggregates(transactions) {
   }
 }
 
-if (module?.exports) {
+if (typeof module !== "undefined" && module && module.exports) {
   module.exports = {
     _calculateAggregates,
   };

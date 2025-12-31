@@ -1,6 +1,8 @@
-const _IS_NODE = module?.exports;
-const { _parseTransactionRecord, _calculateColumnIndices } = _IS_NODE ? require("./Parser") : globalThis;
-const { _calculateAggregates } = _IS_NODE ? require("./Aggregation") : globalThis;
+if (typeof module !== "undefined" && module && module.exports) {
+  Object.assign(globalThis, require("./Constants"));
+  Object.assign(globalThis, require("./Parser"));
+  Object.assign(globalThis, require("./Aggregation"));
+}
 
 /**
  * Calculates the ACB per unit.
@@ -109,7 +111,7 @@ function TRANSACTION_EFFECTS(data) {
   ]
 }
 
-if (module?.exports) {
+if (typeof module !== "undefined" && module && module.exports) {
   module.exports = {
     ACB_UNIT,
     UNITS_OWNED,

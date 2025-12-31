@@ -26,7 +26,7 @@ const _ALL_KNOWN_TRANSACTION_TYPES = [
   _TRANSACTION_TYPE_RETURN_OF_CAPITAL,
 ];
 
-if (module?.exports) {
+if (typeof module !== "undefined" && module && module.exports) {
   module.exports = {
     _COL_DATE,
     _COL_TICKER,
