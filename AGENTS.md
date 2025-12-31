@@ -13,6 +13,11 @@ This repository contains a small Google Apps Script codebase for a Google Sheets
 - `src/Parser.js`: column parsing, transaction typing, and validation helpers.
 - `src/*.test.js`: Jest tests colocated next to the source files they cover.
 
+## Code Organization Preference
+- `src/Code.js` should stay a thin Apps Script integration layer (input/output glue only).
+- Spreadsheet parsing belongs in `src/Parser.js`.
+- Core math and business logic belongs in `src/Aggregation.js`.
+
 ## Build, Test, and Development Commands
 - Local tests run through Jest with zero runtime dependencies; Apps Script code stays plain `.js`.
 - `yarn install`: install dev dependencies (Jest only).

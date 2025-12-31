@@ -1,5 +1,4 @@
 const _IS_NODE = module?.exports;
-const { _TRANSACTION_TYPE_SELL } = _IS_NODE ? require("./Constants") : globalThis;
 const { _parseTransactionRecord, _calculateColumnIndices } = _IS_NODE ? require("./Parser") : globalThis;
 const { _calculateAggregates } = _IS_NODE ? require("./Aggregation") : globalThis;
 
@@ -99,29 +98,10 @@ function TRANSACTION_EFFECTS(data) {
     .map((row, i) => ({ row: i + 2, ..._parseTransactionRecord(row, columnIndices) }))
 
   const { effects } = _calculateAggregates(transactions)
-
   const titleColumn = ["ACB", "ACB Per Unit", "Total Units Owned", "Gain"]
-
-  const formattedTable = []
-  const previousByTicker = {}
-  for (let i = 0; i < effects.length; i += 1) {
-    const { unitsOwned, totalCost } = effects[i]
-    const transaction = transactions[i]
-
-    let gain = 0
-    if (transaction.type === _TRANSACTION_TYPE_SELL) {
-      const previous = previousByTicker[transaction.ticker]
-      const prevUnitsOwned = previous?.unitsOwned ?? 0
-      const prevTotalCost = previous?.totalCost ?? 0
-      const prevAcbPerUnit = prevUnitsOwned > 0 ? prevTotalCost / prevUnitsOwned : 0
-      const costBase = prevAcbPerUnit * transaction.units
-      const proceedsOfSale = (transaction.units * transaction.unitPrice) - transaction.fees
-      gain = proceedsOfSale - costBase
-    }
-
-    formattedTable.push([totalCost, unitsOwned > 0 ? totalCost / unitsOwned : 0, unitsOwned, gain])
-    previousByTicker[transaction.ticker] = { unitsOwned, totalCost }
-  }
+  const formattedTable = effects.map(({ unitsOwned, totalCost, gain }) => {
+    return [totalCost, unitsOwned > 0 ? totalCost / unitsOwned : 0, unitsOwned, gain ?? 0]
+  })
 
   return [
     titleColumn,

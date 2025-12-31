@@ -34,13 +34,16 @@ function _applySell(prev, transaction) {
     throw new Error(`[${transaction.row}]: Cannot have a Sell transaction without owning any units.`)
   }
 
-  const globalAcbSoFar = prev.totalCost / prev.unitsOwned;
+  const globalAcbPerUnitSoFar = prev.totalCost / prev.unitsOwned;
+  const costBase = globalAcbPerUnitSoFar * transaction.units
+  const proceedsOfSale = (transaction.units * transaction.unitPrice) - transaction.fees
 
   return {
     unitsOwned: prev.unitsOwned - transaction.units,
     // Note that transaction.fees does not get added to the ACB on sale. It only reduces the net gains.
     // Do not add transaction.fees here.
-    totalCost: prev.totalCost - (globalAcbSoFar * transaction.units),
+    totalCost: prev.totalCost - costBase,
+    gain: proceedsOfSale - costBase,
   }
 }
 
@@ -104,21 +107,24 @@ function _calculateAggregates(transactions) {
       totalCost: 0,
     }
 
-    const reduced = REDUCERS[transaction.type](prev, transaction)
+    const effect = REDUCERS[transaction.type](prev, transaction)
 
     return {
       aggregates: {
         ...aggregates,
-        [transaction.ticker]: reduced,
+        [transaction.ticker]: {
+          unitsOwned: effect.unitsOwned,
+          totalCost: effect.totalCost,
+        },
       },
-      effects: [...effects, reduced],
+      effects: [...effects, effect],
     }
   }, {
     aggregates: {},
     effects: [],
     /**
      * aggregates: { [ticker]: { unitsOwned: number, totalCost: number } }
-     * effects: [ {unitsOwned: number, totalCost: number} ]
+     * effects: [ {unitsOwned: number, totalCost: number, gain?: number | undefined } ]
      */
   })
 
