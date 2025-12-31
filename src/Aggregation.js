@@ -18,9 +18,34 @@ function _applyNoop(prev) {
   }
 }
 
-const _applyTrfIn = _applyNoop
 const _applyDrip = _applyBuy
-const _applyTrfOut = _applyNoop
+
+// Transfers can be the first event for a ticker (e.g., external ACB seeding).
+// Treat TRF_IN/TRF_OUT as ACB changes, so paired transfers cancel but unpaired
+// transfers establish or remove cost base.
+const _applyTrfIn = _applyBuy
+
+function _applyTrfOut(prev, transaction) {
+  if (prev.unitsOwned <= 0) {
+    throw new Error(`[${transaction.row}]: Cannot have a TRF_OUT transaction without owning any units.`)
+  }
+
+  if (transaction.units > prev.unitsOwned) {
+    throw new Error(`[${transaction.row}]: Cannot transfer out more units than owned.`)
+  }
+
+  const globalAcbPerUnitSoFar = prev.totalCost / prev.unitsOwned;
+
+  if (globalAcbPerUnitSoFar !== transaction.unitPrice) {
+    throw new Error(`[${transaction.row}]: globalAcbPerUnitSoFar ${globalAcbPerUnitSoFar} (${prev.totalCost} / ${prev.unitsOwned}) before the TRF_OUT transaction did not match the transaction's unitPrice ${transaction.unitPrice}.`)
+  }
+
+  return {
+    unitsOwned: prev.unitsOwned - transaction.units,
+    totalCost: prev.totalCost - (transaction.unitPrice * transaction.units),
+    gain: 0,
+  }
+}
 
 function _applySell(prev, transaction) {
   if (prev.unitsOwned <= 0) {

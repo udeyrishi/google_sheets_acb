@@ -144,9 +144,25 @@ describe("_calculateAggregates", () => {
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
-      { unitsOwned: 10, totalCost: 100, gain: 0 },
+      { unitsOwned: 5, totalCost: 50, gain: 0 },
       { unitsOwned: 10, totalCost: 100, gain: 0 },
     ]);
+  });
+
+  it("uses TRF_IN to seed ACB when no buys exist", () => {
+    const transactions = [
+      tx({ row: 2, type: "TRF_IN", date: new Date("2021-06-01"), units: 100, unitPrice: 151.07 }),
+      tx({ row: 3, type: "SELL", date: new Date("2021-10-08"), units: 10, unitPrice: 177.5 }),
+    ];
+
+    const { effects, aggregates } = _calculateAggregates(transactions);
+
+    expect(effects[0]).toEqual({ unitsOwned: 100, totalCost: 15107, gain: 0 });
+    expect(effects[1].unitsOwned).toBe(90);
+    expect(effects[1].totalCost).toBeCloseTo(13596.3, 2);
+    expect(effects[1].gain).toBeCloseTo(264.3, 2);
+    expect(aggregates["TSE:AAA"].unitsOwned).toBe(90);
+    expect(aggregates["TSE:AAA"].totalCost).toBeCloseTo(13596.3, 2);
   });
 
   it("processes a mixed sequence of transactions", () => {
@@ -231,6 +247,15 @@ describe("_calculateAggregates", () => {
         tx({ row: 3, type: "SELL", date: new Date("2022-01-02"), units: 3, unitPrice: 10 }),
       ])
     ).toThrow(/Cannot sell more units than owned/);
+  });
+
+  it("rejects TRF_OUT when unit price does not match ACB per unit", () => {
+    expect(() =>
+      _calculateAggregates([
+        tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10 }),
+        tx({ row: 3, type: "TRF_OUT", date: new Date("2022-01-02"), units: 5, unitPrice: 11 }),
+      ])
+    ).toThrow(/unitPrice/);
   });
 
   it("rejects negative NCDIS values", () => {
