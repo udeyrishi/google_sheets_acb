@@ -1,6 +1,8 @@
+// @gas-remove-start
 if (typeof module !== "undefined" && module && module.exports) {
   Object.assign(globalThis, require("./Constants"));
 }
+// @gas-remove-end
 
 function _parseTransactionRecord(row, columnIndices) {
   const rawTransactionType = row[columnIndices[_COL_TYPE]];
@@ -46,9 +48,11 @@ function _calculateColumnIndices(titleRow) {
   }
 }
 
+// @gas-remove-start
 if (typeof module !== "undefined" && module && module.exports) {
   module.exports = {
     _parseTransactionRecord,
     _calculateColumnIndices,
   };
 }
+// @gas-remove-end

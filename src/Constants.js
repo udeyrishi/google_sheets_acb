@@ -26,6 +26,7 @@ const _ALL_KNOWN_TRANSACTION_TYPES = [
   _TRANSACTION_TYPE_RETURN_OF_CAPITAL,
 ];
 
+// @gas-remove-start
 if (typeof module !== "undefined" && module && module.exports) {
   module.exports = {
     _COL_DATE,
@@ -46,3 +47,4 @@ if (typeof module !== "undefined" && module && module.exports) {
     _ALL_KNOWN_TRANSACTION_TYPES,
   };
 }
+// @gas-remove-end

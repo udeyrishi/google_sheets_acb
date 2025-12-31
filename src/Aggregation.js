@@ -1,6 +1,8 @@
+// @gas-remove-start
 if (typeof module !== "undefined" && module && module.exports) {
   Object.assign(globalThis, require("./Constants"));
 }
+// @gas-remove-end
 
 function _applyBuy(prev, transaction) {
   return {
@@ -158,8 +160,10 @@ function _calculateAggregates(transactions) {
   }
 }
 
+// @gas-remove-start
 if (typeof module !== "undefined" && module && module.exports) {
   module.exports = {
     _calculateAggregates,
   };
 }
+// @gas-remove-end

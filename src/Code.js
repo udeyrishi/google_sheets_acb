@@ -1,8 +1,10 @@
+// @gas-remove-start
 if (typeof module !== "undefined" && module && module.exports) {
   Object.assign(globalThis, require("./Constants"));
   Object.assign(globalThis, require("./Parser"));
   Object.assign(globalThis, require("./Aggregation"));
 }
+// @gas-remove-end
 
 /**
  * Calculates the ACB per unit.
@@ -111,6 +113,7 @@ function TRANSACTION_EFFECTS(data) {
   ]
 }
 
+// @gas-remove-start
 if (typeof module !== "undefined" && module && module.exports) {
   module.exports = {
     ACB_UNIT,
@@ -119,3 +122,4 @@ if (typeof module !== "undefined" && module && module.exports) {
     TRANSACTION_EFFECTS,
   };
 }
+// @gas-remove-end
