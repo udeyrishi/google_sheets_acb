@@ -15,6 +15,7 @@ function _applyBuy(prev, transaction) {
   return {
     unitsOwned: prev.unitsOwned + transaction.units,
     totalCost: prev.totalCost + (transaction.unitPrice * transaction.units) + transaction.fees,
+    gain: 0,
   }
 }
 
@@ -22,6 +23,7 @@ function _applyNoop(prev) {
   return {
     unitsOwned: prev.unitsOwned,
     totalCost: prev.totalCost,
+    gain: 0,
   }
 }
 
@@ -51,6 +53,7 @@ function _applyStakeReward(prev, transaction) {
   return {
     unitsOwned: prev.unitsOwned + transaction.units,
     totalCost: prev.totalCost,
+    gain: 0,
   }
 }
 
@@ -64,6 +67,7 @@ function _applyNcdis(prev, transaction) {
   return {
     totalCost: prev.totalCost + transaction.netTransactionValue,
     unitsOwned: prev.unitsOwned,
+    gain: 0,
   }
 }
 
@@ -77,6 +81,7 @@ function _applyRoc(prev, transaction) {
   return {
     totalCost: prev.totalCost - transaction.netTransactionValue,
     unitsOwned: prev.unitsOwned,
+    gain: 0,
   }
 }
 

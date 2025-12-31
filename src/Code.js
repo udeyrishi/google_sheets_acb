@@ -100,7 +100,7 @@ function TRANSACTION_EFFECTS(data) {
   const { effects } = _calculateAggregates(transactions)
   const titleColumn = ["ACB", "ACB Per Unit", "Total Units Owned", "Gain"]
   const formattedTable = effects.map(({ unitsOwned, totalCost, gain }) => {
-    return [totalCost, unitsOwned > 0 ? totalCost / unitsOwned : 0, unitsOwned, gain ?? 0]
+    return [totalCost, unitsOwned > 0 ? totalCost / unitsOwned : 0, unitsOwned, gain]
   })
 
   return [
