@@ -1,7 +1,6 @@
 const _COL_DATE = 'Date'
 const _COL_TICKER = 'Ticker'
 const _COL_TYPE = 'Type'
-const _COL_ACCOUNT = 'Account'
 const _COL_UNITS = 'Units'
 const _COL_UNIT_PRICE = 'Unit Price'
 const _COL_FEES = 'Fees'
@@ -32,7 +31,6 @@ if (module?.exports) {
     _COL_DATE,
     _COL_TICKER,
     _COL_TYPE,
-    _COL_ACCOUNT,
     _COL_UNITS,
     _COL_UNIT_PRICE,
     _COL_FEES,

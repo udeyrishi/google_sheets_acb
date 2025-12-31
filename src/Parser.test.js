@@ -18,7 +18,6 @@ describe("Parser helpers", () => {
     expect(indices.Date).toBe(1);
     expect(indices.Ticker).toBe(2);
     expect(indices.Type).toBe(0);
-    expect(indices.Account).toBe(3);
     expect(indices.Units).toBe(4);
     expect(indices.Fees).toBe(5);
     expect(indices["Unit Price"]).toBe(6);
@@ -54,14 +53,19 @@ describe("Parser helpers", () => {
     const indices = _calculateColumnIndices(headers);
 
     const record = _parseTransactionRecord(
-      [" buy ", new Date("2021-05-20"), " TSE:SHOP ", " Wealthsimple ", 10, 0, 151.07, 478898.24],
+      [" buy ", new Date("2021-05-20"), " TSE:SHOP ", "Wealthsimple", 10, 0, 151.07, 478898.24],
       indices
     );
 
-    expect(record.type).toBe("BUY");
-    expect(record.ticker).toBe("TSE:SHOP");
-    expect(record.account).toBe("Wealthsimple");
-    expect(record.units).toBe(10);
+    expect(record).toEqual({
+      date: new Date("2021-05-20"),
+      ticker: "TSE:SHOP",
+      type: "BUY",
+      units: 10,
+      unitPrice: 151.07,
+      fees: 0,
+      netTransactionValue: 478898.24,
+    });
   });
 
   it("rejects unknown transaction types", () => {
