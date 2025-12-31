@@ -12,14 +12,6 @@ function _applyBuy(prev, transaction) {
   }
 }
 
-function _applyNoop(prev) {
-  return {
-    unitsOwned: prev.unitsOwned,
-    totalCost: prev.totalCost,
-    gain: 0,
-  }
-}
-
 const _applyDrip = _applyBuy
 
 // Transfers can be the first event for a ticker (e.g., external ACB seeding).
