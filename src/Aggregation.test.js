@@ -54,6 +54,29 @@ describe("_calculateAggregates", () => {
     ]);
   });
 
+  it("adds buy fees to total cost", () => {
+    const transactions = [
+      tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10, fees: 1 }),
+    ];
+
+    const { effects } = _calculateAggregates(transactions);
+
+    expect(effects).toEqual([
+      { unitsOwned: 10, totalCost: 101, gain: 0 },
+    ]);
+  });
+
+  it("reduces gains by sell fees", () => {
+    const transactions = [
+      tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10, fees: 0 }),
+      tx({ row: 3, type: "SELL", date: new Date("2022-01-02"), units: 5, unitPrice: 12, fees: 3 }),
+    ];
+
+    const { effects } = _calculateAggregates(transactions);
+
+    expect(effects[1]).toEqual({ unitsOwned: 5, totalCost: 50, gain: 7 });
+  });
+
   it("treats DRIP as a buy", () => {
     const transactions = [
       tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10 }),
@@ -126,6 +149,35 @@ describe("_calculateAggregates", () => {
     ]);
   });
 
+  it("processes a mixed sequence of transactions", () => {
+    const transactions = [
+      tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10, fees: 1 }),
+      tx({ row: 3, type: "BUY", date: new Date("2022-01-02"), units: 5, unitPrice: 12, fees: 0 }),
+      tx({ row: 4, type: "SELL", date: new Date("2022-01-03"), units: 3, unitPrice: 14, fees: 2 }),
+      tx({ row: 5, type: "NCDIS", date: new Date("2022-01-04"), netTransactionValue: 5 }),
+      tx({ row: 6, type: "ROC", date: new Date("2022-01-05"), netTransactionValue: 3 }),
+      tx({ row: 7, type: "DRIP", date: new Date("2022-01-06"), units: 2, unitPrice: 11 }),
+    ];
+
+    const { aggregates, effects } = _calculateAggregates(transactions);
+
+    // After SELL: ACB per unit before sale = 161 / 15 = 10.733333..., cost base = 32.2,
+    // proceeds = (3 * 14) - 2 = 40, gain = 7.8, new total cost = 161 - 32.2 = 128.8.
+    expect(effects[2].gain).toBeCloseTo(7.8, 6);
+    expect(effects[2].totalCost).toBeCloseTo(128.8, 6);
+    // After NCDIS: total cost + 5 = 133.8, units unchanged.
+    expect(effects[3].unitsOwned).toBe(12);
+    expect(effects[3].totalCost).toBeCloseTo(133.8, 6);
+    expect(effects[3].gain).toBe(0);
+    // After ROC: total cost - 3 = 130.8, units unchanged.
+    expect(effects[4].unitsOwned).toBe(12);
+    expect(effects[4].totalCost).toBeCloseTo(130.8, 6);
+    expect(effects[4].gain).toBe(0);
+    // Final after DRIP: add 2 * 11 = 22 to ACB, units + 2.
+    expect(aggregates["TSE:AAA"].unitsOwned).toBe(14);
+    expect(aggregates["TSE:AAA"].totalCost).toBeCloseTo(152.8, 6);
+  });
+
   it("tracks aggregates independently for interleaved tickers", () => {
     const transactions = [
       tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), ticker: "TSE:AAA", units: 10, unitPrice: 10 }),
@@ -164,6 +216,21 @@ describe("_calculateAggregates", () => {
       { unitsOwned: 6, totalCost: 180, gain: -20 },
       { unitsOwned: 6, totalCost: 60, gain: 8 },
     ]);
+  });
+
+  it("rejects sells when starting with a sell", () => {
+    expect(() =>
+      _calculateAggregates([tx({ row: 2, type: "SELL", date: new Date("2022-01-01"), units: 1, unitPrice: 10 })])
+    ).toThrow(/Cannot have a Sell transaction/);
+  });
+
+  it("rejects sells that exceed the units owned", () => {
+    expect(() =>
+      _calculateAggregates([
+        tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 2, unitPrice: 10 }),
+        tx({ row: 3, type: "SELL", date: new Date("2022-01-02"), units: 3, unitPrice: 10 }),
+      ])
+    ).toThrow(/Cannot sell more units than owned/);
   });
 
   it("rejects negative NCDIS values", () => {

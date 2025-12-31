@@ -35,6 +35,9 @@ function _applySell(prev, transaction) {
   if (prev.unitsOwned <= 0) {
     throw new Error(`[${transaction.row}]: Cannot have a Sell transaction without owning any units.`)
   }
+  if (transaction.units > prev.unitsOwned) {
+    throw new Error(`[${transaction.row}]: Cannot sell more units than owned.`)
+  }
 
   const globalAcbPerUnitSoFar = prev.totalCost / prev.unitsOwned;
   const costBase = globalAcbPerUnitSoFar * transaction.units
