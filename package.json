@@ -1,0 +1,12 @@
+{
+  "name": "g_sheet_finance_tracker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local test harness for Google Apps Script ACB utilities.",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

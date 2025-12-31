@@ -1,14 +1,15 @@
-function _findUniqueTickers(data) {
-  const columnIndices = _calculateColumnIndices(data[0])
+const _IS_NODE = module?.exports;
 
-  const tickers = new Set(data
-    .slice(1)
-    .map(row => _parseTransactionRecord(row, columnIndices))
-    .map(({ticker}) => ticker)
-  )
-
-  return [...tickers].sort()
-}
+const {
+  _TRANSACTION_TYPE_TRF_IN,
+  _TRANSACTION_TYPE_BUY,
+  _TRANSACTION_TYPE_DRIP,
+  _TRANSACTION_TYPE_TRF_OUT,
+  _TRANSACTION_TYPE_SELL,
+  _TRANSACTION_TYPE_STAKE_REWARD,
+  _TRANSACTION_TYPE_NON_CASH_DIST,
+  _TRANSACTION_TYPE_RETURN_OF_CAPITAL,
+} = _IS_NODE ? require("./Constants") : globalThis;
 
 function _applyBuy(prev, transaction) {
   return {
@@ -41,7 +42,7 @@ function _applySell(prev, transaction) {
   if (prev.unitsOwned <= 0) {
     throw new Error(`[${transaction.row}]: Cannot have a Sell transaction without owning any units.`)
   }
-  
+
   const accountAcbSoFar = prev.totalCost / prev.unitsOwned;
 
   return {
@@ -97,7 +98,7 @@ const REDUCERS = {
 }
 
 function _calculateAggregates(transactions) {
-  const {accounts: accountAggregations, effects} = transactions.reduce(({accounts, effects}, transaction, i) => {
+  const { accounts: accountAggregations, effects } = transactions.reduce(({ accounts, effects }, transaction, i) => {
     if (!(transaction.type in REDUCERS)) {
       throw new Error(`[${transaction.row}]: Unknown transaction type: ${transaction.type}`)
     }
@@ -140,7 +141,7 @@ function _calculateAggregates(transactions) {
   })
 
   const overallAggregates = [...Object.values(accountAggregations)].reduce((aggregatedAcrossAccounts, perAccountInfo) => {
-    return [...Object.entries(perAccountInfo)].reduce((agg, [ticker, {unitsOwned, totalCost}]) => {
+    return [...Object.entries(perAccountInfo)].reduce((agg, [ticker, { unitsOwned, totalCost }]) => {
       const prev = agg[ticker] ?? { unitsOwned: 0, totalCost: 0 }
       const next = {
         unitsOwned: prev.unitsOwned + unitsOwned,
@@ -165,49 +166,9 @@ function _calculateAggregates(transactions) {
   }
 }
 
+if (module?.exports) {
+  module.exports = {
+    _calculateAggregates,
+  };
+}
 
-// function _calculateAggregatesDep(ticker, data) {
-//   const columnIndices = _calculateColumnIndices(data[0])
-
-//   const chronologicalTransactions = data
-//     .slice(1)
-//     .map((row, i) => ({row: i+2, ..._parseTransactionRecord(row, columnIndices)}))
-//     .filter(transaction => transaction.ticker === ticker)
-//     // .sort(({date: dateA}, {date: dateB}) => dateA.getTime() - dateB.getTime())
-
-//   const accountAggregations = chronologicalTransactions
-//     .reduce((accounts, transaction) => {
-//       if (!(transaction.type in REDUCERS)) {
-//         throw new Error(`[${transaction.row}]: Unknown transaction type: ${transaction.type}`)
-//       }
-
-//       const prev = accounts[transaction.account] ?? {
-//         unitsOwned: 0,
-//         totalCost: 0,
-//       }
-      
-//       const reduced = REDUCERS[transaction.type](prev, transaction)
-
-//       return {
-//         ...accounts,
-//         [transaction.account]: reduced,
-//       }
-//     }, {
-//       // shape: [accountName]: {unitsOwned: number, totalCost: number}
-//     });
-
-//   const overallAggregates = [...Object.values(accountAggregations)].reduce((aggregatedAcrossAccounts, perAccountInfo) => {
-//       return {
-//         unitsOwned: aggregatedAcrossAccounts.unitsOwned + perAccountInfo.unitsOwned,
-//         totalCost: aggregatedAcrossAccounts.totalCost + perAccountInfo.totalCost,
-//       }
-//     }, {
-//       unitsOwned: 0,
-//       totalCost: 0,
-//     });
-  
-//   return {
-//     ...overallAggregates,
-//     accounts: accountAggregations,
-//   }
-// }
