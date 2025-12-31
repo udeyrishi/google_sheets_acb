@@ -18,38 +18,29 @@ function _applyBuy(prev, transaction) {
   }
 }
 
-const _applyTrfIn = _applyBuy
-const _applyDrip = _applyBuy
-
-function _applyTrfOut(prev, transaction) {
-  if (prev.unitsOwned <= 0) {
-    throw new Error(`[${transaction.row}]: Cannot have a TRF_OUT transaction without owning any units.`)
-  }
-
-  const accountAcbSoFar = prev.totalCost / prev.unitsOwned;
-
-  if (accountAcbSoFar !== transaction.unitPrice) {
-    throw new Error(`[${transaction.row}]: accountAcbSoFar ${accountAcbSoFar} (${prev.totalCost} / ${prev.unitsOwned}) before the TRF_OUT transaction did not match the transaction's unitPrice ${transaction.unitPrice}.`)
-  }
-
+function _applyNoop(prev) {
   return {
-    unitsOwned: prev.unitsOwned - transaction.units,
-    totalCost: prev.totalCost - (accountAcbSoFar * transaction.units) + transaction.fees,
+    unitsOwned: prev.unitsOwned,
+    totalCost: prev.totalCost,
   }
 }
+
+const _applyTrfIn = _applyNoop
+const _applyDrip = _applyBuy
+const _applyTrfOut = _applyNoop
 
 function _applySell(prev, transaction) {
   if (prev.unitsOwned <= 0) {
     throw new Error(`[${transaction.row}]: Cannot have a Sell transaction without owning any units.`)
   }
 
-  const accountAcbSoFar = prev.totalCost / prev.unitsOwned;
+  const globalAcbSoFar = prev.totalCost / prev.unitsOwned;
 
   return {
     unitsOwned: prev.unitsOwned - transaction.units,
     // Note that transaction.fees does not get added to the ACB on sale. It only reduces the net gains.
     // Do not add transaction.fees here.
-    totalCost: prev.totalCost - (accountAcbSoFar * transaction.units),
+    totalCost: prev.totalCost - (globalAcbSoFar * transaction.units),
   }
 }
 
@@ -98,7 +89,7 @@ const REDUCERS = {
 }
 
 function _calculateAggregates(transactions) {
-  const { accounts: accountAggregations, effects } = transactions.reduce(({ accounts, effects }, transaction, i) => {
+  const { aggregates, effects } = transactions.reduce(({ aggregates, effects }, transaction, i) => {
     if (!(transaction.type in REDUCERS)) {
       throw new Error(`[${transaction.row}]: Unknown transaction type: ${transaction.type}`)
     }
@@ -108,9 +99,7 @@ function _calculateAggregates(transactions) {
       throw new Error(`[${transaction.row}]: Transaction date is less than the previous transaction date ${previousTransaction.date}`)
     }
 
-    const accountAssets = accounts[transaction.account] ?? {}
-
-    const prev = accountAssets[transaction.ticker] ?? {
+    const prev = aggregates[transaction.ticker] ?? {
       unitsOwned: 0,
       totalCost: 0,
     }
@@ -118,50 +107,23 @@ function _calculateAggregates(transactions) {
     const reduced = REDUCERS[transaction.type](prev, transaction)
 
     return {
-      accounts: {
-        ...accounts,
-        [transaction.account]: {
-          ...accountAssets,
-          [transaction.ticker]: reduced,
-        },
+      aggregates: {
+        ...aggregates,
+        [transaction.ticker]: reduced,
       },
-      effects: [...effects, reduced]
+      effects: [...effects, reduced],
     }
   }, {
-    accounts: {},
+    aggregates: {},
     effects: [],
     /**
-     * accounts: {
-     *   [account]: {
-     *     [ticker]: { unitsOwned: number, totalCost: number }
-     *   },
+     * aggregates: { [ticker]: { unitsOwned: number, totalCost: number } }
      * effects: [ {unitsOwned: number, totalCost: number} ]
-     * }
      */
   })
 
-  const overallAggregates = [...Object.values(accountAggregations)].reduce((aggregatedAcrossAccounts, perAccountInfo) => {
-    return [...Object.entries(perAccountInfo)].reduce((agg, [ticker, { unitsOwned, totalCost }]) => {
-      const prev = agg[ticker] ?? { unitsOwned: 0, totalCost: 0 }
-      const next = {
-        unitsOwned: prev.unitsOwned + unitsOwned,
-        totalCost: prev.totalCost + totalCost,
-      }
-
-      return {
-        ...agg,
-        [ticker]: next,
-      }
-    }, aggregatedAcrossAccounts)
-  }, {
-    /**
-     * [ticker] : { unitsOwned: number; totalCost: number }
-     */
-  });
-
   return {
-    overallAggregates,
-    accounts: accountAggregations,
+    aggregates,
     effects,
   }
 }
@@ -171,4 +133,3 @@ if (module?.exports) {
     _calculateAggregates,
   };
 }
-

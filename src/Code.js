@@ -10,21 +10,19 @@ const { _calculateAggregates } = _IS_NODE ? require("./Aggregation") : globalThi
  * @return The ACB per unit for the specified ticker given the data
  * @customfunction
  */
-function ACB_UNIT(ticker, account, data) {
+function ACB_UNIT(ticker, _account, data) {
+  if (_account) {
+    throw new Error("account param is no longer supported.")
+  }
+
   const columnIndices = _calculateColumnIndices(data[0])
 
   const transactions = data
     .slice(1)
     .map((row, i) => ({ row: i + 2, ..._parseTransactionRecord(row, columnIndices) }))
 
-  const { overallAggregates, accounts } = _calculateAggregates(transactions)
-
-  let aggregated;
-  if (account) {
-    aggregated = accounts[account][ticker]
-  } else {
-    aggregated = overallAggregates[ticker]
-  }
+  const { aggregates } = _calculateAggregates(transactions)
+  const aggregated = aggregates[ticker]
 
   return aggregated.unitsOwned > 0 ? aggregated.totalCost / aggregated.unitsOwned : 0
 }
@@ -36,21 +34,19 @@ function ACB_UNIT(ticker, account, data) {
  * @return The total units owned for the ticker
  * @customfunction
  */
-function UNITS_OWNED(ticker, account, data) {
+function UNITS_OWNED(ticker, _account, data) {
+  if (_account) {
+    throw new Error("account param is no longer supported.")
+  }
+
   const columnIndices = _calculateColumnIndices(data[0])
 
   const transactions = data
     .slice(1)
     .map((row, i) => ({ row: i + 2, ..._parseTransactionRecord(row, columnIndices) }))
 
-  const { overallAggregates, accounts } = _calculateAggregates(transactions)
-
-  let aggregated;
-  if (account) {
-    aggregated = accounts[account][ticker]
-  } else {
-    aggregated = overallAggregates[ticker]
-  }
+  const { aggregates } = _calculateAggregates(transactions)
+  const aggregated = aggregates[ticker]
 
   return aggregated.unitsOwned
 }
@@ -68,7 +64,7 @@ function ASSET_REPORT(data) {
     .slice(1)
     .map((row, i) => ({ row: i + 2, ..._parseTransactionRecord(row, columnIndices) }))
 
-  const aggregatedTable = [...Object.entries(_calculateAggregates(transactions).overallAggregates)]
+  const aggregatedTable = [...Object.entries(_calculateAggregates(transactions).aggregates)]
     .filter(([_ticker, aggregated]) => aggregated.unitsOwned > 0)
     .map(([ticker, aggregated]) => {
       const acbPerUnit = aggregated.totalCost / aggregated.unitsOwned
@@ -78,7 +74,7 @@ function ASSET_REPORT(data) {
       }]
     })
     .sort(([ticker1], [ticker2]) => {
-      if (ticker1 == ticker2) {
+      if (ticker1 === ticker2) {
         return 0
       } else if (ticker1 < ticker2) {
         return -1
@@ -106,20 +102,26 @@ function TRANSACTION_EFFECTS(data) {
 
   const titleColumn = ["ACB", "ACB Per Unit", "Total Units Owned", "Gain"]
 
-  const formattedTable = effects.map(({ unitsOwned, totalCost }, i) => {
+  const formattedTable = []
+  const previousByTicker = {}
+  for (let i = 0; i < effects.length; i += 1) {
+    const { unitsOwned, totalCost } = effects[i]
     const transaction = transactions[i]
 
     let gain = 0
     if (transaction.type === _TRANSACTION_TYPE_SELL) {
-      const historicalData = filledData.slice(0, i + 1)
-      const costBase = ACB_UNIT(transaction.ticker, null, historicalData) * transaction.units
+      const previous = previousByTicker[transaction.ticker]
+      const prevUnitsOwned = previous?.unitsOwned ?? 0
+      const prevTotalCost = previous?.totalCost ?? 0
+      const prevAcbPerUnit = prevUnitsOwned > 0 ? prevTotalCost / prevUnitsOwned : 0
+      const costBase = prevAcbPerUnit * transaction.units
       const proceedsOfSale = (transaction.units * transaction.unitPrice) - transaction.fees
       gain = proceedsOfSale - costBase
     }
 
-    return [totalCost, unitsOwned > 0 ? totalCost / unitsOwned : 0, unitsOwned, gain]
+    formattedTable.push([totalCost, unitsOwned > 0 ? totalCost / unitsOwned : 0, unitsOwned, gain])
+    previousByTicker[transaction.ticker] = { unitsOwned, totalCost }
   }
-  )
 
   return [
     titleColumn,
