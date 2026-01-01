@@ -12,6 +12,7 @@ import {
 } from './constants';
 import type { SheetRow, SheetScalar } from './g_sheet_types';
 import type { TransactionRecord } from './financial_types';
+import { formatErrorCause } from './utils';
 
 export type ColumnIndices = Record<ColTitle, number>;
 
@@ -77,19 +78,25 @@ export function parseTransactionRecord(
   row: SheetRow,
   columnIndices: ColumnIndices,
 ): TransactionRecord {
-  return {
-    row: rowNumber,
-    date: parseDateValue(row[columnIndices[COL_DATE]], 'Transaction date'),
-    ticker: parseStringValue(row[columnIndices[COL_TICKER]], 'Ticker'),
-    type: parseTransactionType(row, columnIndices),
-    units: parseNumberValue(row[columnIndices[COL_UNITS]], 'Units'),
-    unitPrice: parseNumberValue(row[columnIndices[COL_UNIT_PRICE]], 'Unit price'),
-    fees: parseNumberValue(row[columnIndices[COL_FEES]], 'Fees'),
-    netTransactionValue: parseNumberValue(
-      row[columnIndices[COL_NET_TRANSACTION_VALUE]],
-      'Net transaction value',
-    ),
-  };
+  try {
+    return {
+      row: rowNumber,
+      date: parseDateValue(row[columnIndices[COL_DATE]], 'Transaction date'),
+      ticker: parseStringValue(row[columnIndices[COL_TICKER]], 'Ticker'),
+      type: parseTransactionType(row, columnIndices),
+      units: parseNumberValue(row[columnIndices[COL_UNITS]], 'Units'),
+      unitPrice: parseNumberValue(row[columnIndices[COL_UNIT_PRICE]], 'Unit price'),
+      fees: parseNumberValue(row[columnIndices[COL_FEES]], 'Fees'),
+      netTransactionValue: parseNumberValue(
+        row[columnIndices[COL_NET_TRANSACTION_VALUE]],
+        'Net transaction value',
+      ),
+    };
+  } catch (error) {
+    throw new Error(
+      `[row: ${rowNumber}]: Failed to parse the transaction record.\n${formatErrorCause(error)}`,
+    );
+  }
 }
 
 export function calculateColumnIndices(titleRow: SheetRow): ColumnIndices {
