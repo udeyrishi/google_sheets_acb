@@ -6,7 +6,6 @@ describe('Parser helpers', () => {
       'Type',
       'Date',
       'Ticker',
-      'Account',
       'Units',
       'Fees',
       'Unit Price',
@@ -18,25 +17,31 @@ describe('Parser helpers', () => {
     expect(indices.Date).toBe(1);
     expect(indices.Ticker).toBe(2);
     expect(indices.Type).toBe(0);
-    expect(indices.Units).toBe(4);
-    expect(indices.Fees).toBe(5);
-    expect(indices['Unit Price']).toBe(6);
-    expect(indices['Net Transaction Value']).toBe(7);
+    expect(indices.Units).toBe(3);
+    expect(indices.Fees).toBe(4);
+    expect(indices['Unit Price']).toBe(5);
+    expect(indices['Net Transaction Value']).toBe(6);
   });
 
-  it('throws when headers do not match expected names', () => {
+  it('normalizes headers with extra whitespace', () => {
     const headers = [
       'Type',
       'Date',
       'Ticker',
-      'Account',
       'Units',
       ' Fees ',
       ' Unit Price ',
       ' Net Transaction Value ',
     ];
 
-    expect(() => calculateColumnIndices(headers)).toThrow(/could not be found/i);
+    const indices = calculateColumnIndices(headers);
+    expect(indices.Type).toBe(0);
+    expect(indices.Date).toBe(1);
+    expect(indices.Ticker).toBe(2);
+    expect(indices.Units).toBe(3);
+    expect(indices.Fees).toBe(4);
+    expect(indices['Unit Price']).toBe(5);
+    expect(indices['Net Transaction Value']).toBe(6);
   });
 
   it('parses and normalizes transaction records', () => {
@@ -44,7 +49,6 @@ describe('Parser helpers', () => {
       'Type',
       'Date',
       'Ticker',
-      'Account',
       'Units',
       'Fees',
       'Unit Price',
@@ -53,7 +57,7 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     const record = parseTransactionRecord(
-      [' buy ', new Date('2021-05-20'), ' TSE:SHOP ', 'Wealthsimple', 10, 0, 151.07, 478898.24],
+      [' buy ', new Date('2021-05-20'), ' TSE:SHOP ', 10, 0, 151.07, 478898.24],
       indices,
     );
 
@@ -73,7 +77,6 @@ describe('Parser helpers', () => {
       'Type',
       'Date',
       'Ticker',
-      'Account',
       'Units',
       'Fees',
       'Unit Price',
@@ -83,9 +86,157 @@ describe('Parser helpers', () => {
 
     expect(() =>
       parseTransactionRecord(
-        ['DIV', new Date('2021-05-20'), 'ABC', 'Taxable', 1, 0, 10, 10],
+        ['DIV', new Date('2021-05-20'), 'ABC', 1, 0, 10, 10],
         indices,
       ),
     ).toThrow(/Unknown transaction type/i);
+  });
+
+  it('parses numeric strings with commas', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    const record = parseTransactionRecord(
+      ['BUY', new Date('2021-05-20'), 'TSE:SHOP', '1,234.5', '0.25', '1,000.00', '1,234,567.89'],
+      indices,
+    );
+
+    expect(record.units).toBeCloseTo(1234.5, 6);
+    expect(record.fees).toBeCloseTo(0.25, 6);
+    expect(record.unitPrice).toBeCloseTo(1000, 6);
+    expect(record.netTransactionValue).toBeCloseTo(1234567.89, 6);
+  });
+
+  it('rejects invalid dates', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(['BUY', '2021-05-20', 'TSE:SHOP', 10, 0, 151.07, 478898.24], indices),
+    ).toThrow(/Transaction date/);
+  });
+
+  it('rejects non-string tickers', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(['BUY', new Date('2021-05-20'), 123, 10, 0, 151.07, 478898.24], indices),
+    ).toThrow(/Ticker/);
+  });
+
+  it('rejects blank tickers', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(['BUY', new Date('2021-05-20'), '   ', 10, 0, 151.07, 478898.24], indices),
+    ).toThrow(/Ticker/);
+  });
+
+  it('rejects non-numeric values for numeric fields', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(['BUY', new Date('2021-05-20'), 'TSE:SHOP', 'abc', 0, 151.07, 478898.24], indices),
+    ).toThrow(/Units/);
+  });
+
+  it('rejects empty numeric strings for numeric fields', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, '', 151.07, 478898.24], indices),
+    ).toThrow(/Fees/);
+  });
+
+  it('rejects non-finite numbers for numeric fields', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, 0, Number.NaN, 478898.24],
+        indices,
+      ),
+    ).toThrow(/Unit price/);
+  });
+
+  it('rejects non-numeric net transaction values', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, 0, 151.07, true],
+        indices,
+      ),
+    ).toThrow(/Net transaction value/);
   });
 });

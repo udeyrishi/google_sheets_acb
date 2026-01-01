@@ -88,7 +88,7 @@ const wrapperExplanation = `
 // Google Apps Script automatically exposes all functions declared at this global scope as callable, custom, Google Sheets functions. This
 // declaration needs to be static; any dynamic additions to the global 'this' doesn't seem to expose the corresponding functions to Google Sheets. Hence, this following block 
 // that exposes the callable APIs statically.
-`
+`;
 
 const gasContent = `${output.text}\n${wrapperExplanation}\n${wrappers}\n`;
 await fs.promises.mkdir(path.dirname(outFile), { recursive: true });

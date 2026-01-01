@@ -6,6 +6,18 @@ export const COL_UNIT_PRICE = 'Unit Price';
 export const COL_FEES = 'Fees';
 export const COL_NET_TRANSACTION_VALUE = 'Net Transaction Value';
 
+export const ALL_KNOWN_COL_TITLES = [
+  COL_DATE,
+  COL_TICKER,
+  COL_TYPE,
+  COL_UNITS,
+  COL_UNIT_PRICE,
+  COL_FEES,
+  COL_NET_TRANSACTION_VALUE,
+] as const;
+
+export type ColTitle = (typeof ALL_KNOWN_COL_TITLES)[number];
+
 export const TRANSACTION_TYPE_TRF_IN = 'TRF_IN';
 export const TRANSACTION_TYPE_TRF_OUT = 'TRF_OUT';
 export const TRANSACTION_TYPE_BUY = 'BUY';
@@ -24,4 +36,6 @@ export const ALL_KNOWN_TRANSACTION_TYPES = [
   TRANSACTION_TYPE_STAKE_REWARD,
   TRANSACTION_TYPE_NON_CASH_DIST,
   TRANSACTION_TYPE_RETURN_OF_CAPITAL,
-];
+] as const;
+
+export type TransactionType = (typeof ALL_KNOWN_TRANSACTION_TYPES)[number];
