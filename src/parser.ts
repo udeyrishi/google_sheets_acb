@@ -7,18 +7,19 @@ import {
   COL_FEES,
   COL_NET_TRANSACTION_VALUE,
   ALL_KNOWN_TRANSACTION_TYPES,
-} from "./constants";
+} from './constants';
 
 export function parseTransactionRecord(row, columnIndices) {
   const rawTransactionType = row[columnIndices[COL_TYPE]];
 
   const transactionTypeIndex = ALL_KNOWN_TRANSACTION_TYPES.findIndex(
-    (knownTransactionType) => rawTransactionType.toLowerCase().trim() === knownTransactionType.toLowerCase()
+    (knownTransactionType) =>
+      rawTransactionType.toLowerCase().trim() === knownTransactionType.toLowerCase(),
   );
   if (transactionTypeIndex < 0) {
-    throw new Error(`Unknown transaction type: ${rawTransactionType}`)
+    throw new Error(`Unknown transaction type: ${rawTransactionType}`);
   }
-  const santizedTransactionType = ALL_KNOWN_TRANSACTION_TYPES[transactionTypeIndex]
+  const santizedTransactionType = ALL_KNOWN_TRANSACTION_TYPES[transactionTypeIndex];
 
   return {
     date: row[columnIndices[COL_DATE]],
@@ -28,7 +29,7 @@ export function parseTransactionRecord(row, columnIndices) {
     unitPrice: row[columnIndices[COL_UNIT_PRICE]],
     fees: row[columnIndices[COL_FEES]],
     netTransactionValue: row[columnIndices[COL_NET_TRANSACTION_VALUE]],
-  }
+  };
 }
 
 export function calculateColumnIndices(titleRow) {
@@ -36,10 +37,10 @@ export function calculateColumnIndices(titleRow) {
     const index = titles.findIndex((title) => title.toLowerCase() === columnName.toLowerCase());
 
     if (index < 0) {
-      throw new Error(`${columnName} could not be found in titles ${titles}.`)
+      throw new Error(`${columnName} could not be found in titles ${titles}.`);
     }
 
-    return index
+    return index;
   }
 
   return {
@@ -50,5 +51,5 @@ export function calculateColumnIndices(titleRow) {
     [COL_UNIT_PRICE]: indexOfColumn(titleRow, COL_UNIT_PRICE),
     [COL_FEES]: indexOfColumn(titleRow, COL_FEES),
     [COL_NET_TRANSACTION_VALUE]: indexOfColumn(titleRow, COL_NET_TRANSACTION_VALUE),
-  }
+  };
 }

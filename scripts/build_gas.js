@@ -1,24 +1,25 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import { build } from "esbuild";
-import ts from "typescript";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { build } from 'esbuild';
+import ts from 'typescript';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, "..");
-const entryFile = path.join(rootDir, "src", "main.ts");
-const outFile = path.join(rootDir, "build", "Code.gs");
+const rootDir = path.resolve(__dirname, '..');
+const entryFile = path.join(rootDir, 'src', 'main.ts');
+const outFile = path.join(rootDir, 'build', 'Code.gs');
 
-const GLOBAL_NAME = "GAS_EXPORTS";
+const GLOBAL_NAME = 'GAS_EXPORTS';
 
 const result = await build({
   entryPoints: [entryFile],
   bundle: true,
-  format: "iife",
+  format: 'iife',
   globalName: GLOBAL_NAME,
-  target: "es2019",
-  platform: "browser",
+  target: 'es2019',
+  platform: 'browser',
+  tsconfig: path.join(rootDir, 'tsconfig.json'),
   outfile: outFile,
   metafile: true,
   write: false,
@@ -26,7 +27,7 @@ const result = await build({
 
 const output = result.outputFiles.find((file) => file.path === outFile) || result.outputFiles[0];
 if (!output) {
-  throw new Error("esbuild did not produce any output files.");
+  throw new Error('esbuild did not produce any output files.');
 }
 
 function isExported(stmt) {
@@ -55,7 +56,7 @@ function collectExportedNamedBindings(names, stmt) {
 }
 
 function getExportedNames(filePath) {
-  const sourceText = fs.readFileSync(filePath, "utf8");
+  const sourceText = fs.readFileSync(filePath, 'utf8');
   const source = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.ESNext, true);
   const names = new Set();
 
@@ -74,15 +75,15 @@ function getExportedNames(filePath) {
 
 const exportList = getExportedNames(entryFile);
 if (exportList.length === 0) {
-  throw new Error("No exports found from entrypoint; wrappers would be empty.");
+  throw new Error('No exports found from entrypoint; wrappers would be empty.');
 }
 
 const wrappers = exportList
   .map((name) => {
     return `function ${name}() { return ${GLOBAL_NAME}.${name}.apply(this, arguments); }`;
   })
-  .join("\n");
+  .join('\n');
 
 const gasContent = `${output.text}\n\n${wrappers}\n`;
 await fs.promises.mkdir(path.dirname(outFile), { recursive: true });
-await fs.promises.writeFile(outFile, gasContent, "utf8");
+await fs.promises.writeFile(outFile, gasContent, 'utf8');
