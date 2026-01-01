@@ -1,3 +1,4 @@
+import type { TransactionRecord } from './financial_types';
 import { parseTransactionRecord, calculateColumnIndices } from './parser';
 
 describe('Parser helpers', () => {
@@ -57,11 +58,13 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     const record = parseTransactionRecord(
+      2,
       [' buy ', new Date('2021-05-20'), ' TSE:SHOP ', 10, 0, 151.07, 478898.24],
       indices,
     );
 
-    expect(record).toEqual({
+    expect(record).toEqual<TransactionRecord>({
+      row: 2,
       date: new Date('2021-05-20'),
       ticker: 'TSE:SHOP',
       type: 'BUY',
@@ -85,7 +88,7 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     expect(() =>
-      parseTransactionRecord(['DIV', new Date('2021-05-20'), 'ABC', 1, 0, 10, 10], indices),
+      parseTransactionRecord(1, ['DIV', new Date('2021-05-20'), 'ABC', 1, 0, 10, 10], indices),
     ).toThrow(/Unknown transaction type/i);
   });
 
@@ -102,6 +105,7 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     const record = parseTransactionRecord(
+      2,
       ['BUY', new Date('2021-05-20'), 'TSE:SHOP', '1,234.5', '0.25', '1,000.00', '1,234,567.89'],
       indices,
     );
@@ -125,7 +129,11 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     expect(() =>
-      parseTransactionRecord(['BUY', '2021-05-20', 'TSE:SHOP', 10, 0, 151.07, 478898.24], indices),
+      parseTransactionRecord(
+        3,
+        ['BUY', '2021-05-20', 'TSE:SHOP', 10, 0, 151.07, 478898.24],
+        indices,
+      ),
     ).toThrow(/Transaction date/);
   });
 
@@ -143,6 +151,7 @@ describe('Parser helpers', () => {
 
     expect(() =>
       parseTransactionRecord(
+        4,
         ['BUY', new Date('2021-05-20'), 123, 10, 0, 151.07, 478898.24],
         indices,
       ),
@@ -163,6 +172,7 @@ describe('Parser helpers', () => {
 
     expect(() =>
       parseTransactionRecord(
+        1,
         ['BUY', new Date('2021-05-20'), '   ', 10, 0, 151.07, 478898.24],
         indices,
       ),
@@ -183,6 +193,7 @@ describe('Parser helpers', () => {
 
     expect(() =>
       parseTransactionRecord(
+        1,
         ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 'abc', 0, 151.07, 478898.24],
         indices,
       ),
@@ -203,6 +214,7 @@ describe('Parser helpers', () => {
 
     expect(() =>
       parseTransactionRecord(
+        1,
         ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, '', 151.07, 478898.24],
         indices,
       ),
@@ -223,6 +235,7 @@ describe('Parser helpers', () => {
 
     expect(() =>
       parseTransactionRecord(
+        1,
         ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, 0, Number.NaN, 478898.24],
         indices,
       ),
@@ -243,6 +256,7 @@ describe('Parser helpers', () => {
 
     expect(() =>
       parseTransactionRecord(
+        1,
         ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, 0, 151.07, true],
         indices,
       ),

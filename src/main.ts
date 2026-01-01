@@ -1,5 +1,6 @@
 import { calculateColumnIndices, parseTransactionRecord } from './parser';
 import { calculateAggregates } from './aggregation';
+import type { SheetRow, SheetTable } from './g_sheet_types';
 
 /**
  * Calculates the ACB per unit.
@@ -8,12 +9,12 @@ import { calculateAggregates } from './aggregation';
  * @return The ACB per unit for the specified ticker given the data
  * @customfunction
  */
-export function ACB_UNIT(ticker, data) {
+export function ACB_UNIT(ticker: string, data: SheetTable): number {
   const columnIndices = calculateColumnIndices(data[0]);
 
   const transactions = data
     .slice(1)
-    .map((row, i) => ({ row: i + 2, ...parseTransactionRecord(row, columnIndices) }));
+    .map((row, i) => parseTransactionRecord(i + 2, row, columnIndices));
 
   const { aggregates } = calculateAggregates(transactions);
   const aggregated = aggregates[ticker];
@@ -28,7 +29,11 @@ export function ACB_UNIT(ticker, data) {
  * @return The total units owned for the ticker
  * @customfunction
  */
-export function UNITS_OWNED(ticker, _account, data) {
+export function UNITS_OWNED(
+  ticker: string,
+  _account: string | null | undefined,
+  data: SheetTable,
+): number {
   if (_account) {
     throw new Error('account param is no longer supported.');
   }
@@ -37,7 +42,7 @@ export function UNITS_OWNED(ticker, _account, data) {
 
   const transactions = data
     .slice(1)
-    .map((row, i) => ({ row: i + 2, ...parseTransactionRecord(row, columnIndices) }));
+    .map((row, i) => parseTransactionRecord(i + 2, row, columnIndices));
 
   const { aggregates } = calculateAggregates(transactions);
   const aggregated = aggregates[ticker];
@@ -48,29 +53,26 @@ export function UNITS_OWNED(ticker, _account, data) {
 /**
  * Calculates the full current report for all assets in the dataset
  */
-export function ASSET_REPORT(data) {
-  const filledData = data.filter((row) => row.findIndex((col) => Boolean(col)) >= 0);
+export function ASSET_REPORT(data: SheetTable): SheetTable {
+  const filledData = data.filter((row: SheetRow) => row.findIndex((col) => Boolean(col)) >= 0);
 
   const columnIndices = calculateColumnIndices(filledData[0]);
 
   const transactions = filledData
     .slice(1)
-    .map((row, i) => ({ row: i + 2, ...parseTransactionRecord(row, columnIndices) }));
+    .map((row: SheetRow, i: number) => parseTransactionRecord(i + 2, row, columnIndices));
 
   const aggregatedTable = [...Object.entries(calculateAggregates(transactions).aggregates)]
-    // @ts-expect-error TODO when types are added
     .filter(([_ticker, aggregated]) => aggregated.unitsOwned > 0)
     .map(([ticker, aggregated]) => {
-      // @ts-expect-error TODO when types are added
       const acbPerUnit = aggregated.totalCost / aggregated.unitsOwned;
       return [
         ticker,
         {
-          // @ts-expect-error TODO when types are added
           ...aggregated,
           acbPerUnit,
         },
-      ];
+      ] as const;
     })
     .sort(([ticker1], [ticker2]) => {
       if (ticker1 === ticker2) {
@@ -81,25 +83,23 @@ export function ASSET_REPORT(data) {
         return 1;
       }
     })
-    .map(([ticker, { unitsOwned, totalCost, acbPerUnit }]) => [
-      ticker,
-      unitsOwned,
-      totalCost,
-      acbPerUnit,
-    ]);
+    .map(
+      ([ticker, { unitsOwned, totalCost, acbPerUnit }]) =>
+        [ticker, unitsOwned, totalCost, acbPerUnit] as const,
+    );
 
   const titleColumn = ['Ticker', 'Units Owned', 'ACB', 'ACB Per Unit'];
   return [titleColumn, ...aggregatedTable];
 }
 
-export function TRANSACTION_EFFECTS(data) {
+export function TRANSACTION_EFFECTS(data: SheetTable) {
   const filledData = data.filter((row) => row.findIndex((col) => Boolean(col)) >= 0);
 
   const columnIndices = calculateColumnIndices(filledData[0]);
 
   const transactions = filledData
     .slice(1)
-    .map((row, i) => ({ row: i + 2, ...parseTransactionRecord(row, columnIndices) }));
+    .map((row, i) => parseTransactionRecord(i + 2, row, columnIndices));
 
   const { effects } = calculateAggregates(transactions);
   const titleColumn = ['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain'];

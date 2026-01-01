@@ -1,4 +1,6 @@
 import { calculateAggregates } from './aggregation';
+import type { TransactionType } from './constants';
+import type { Money, Ticker, TransactionRecord } from './financial_types';
 
 function tx({
   row,
@@ -9,7 +11,16 @@ function tx({
   unitPrice = 0,
   fees = 0,
   netTransactionValue = 0,
-}) {
+}: {
+  row: number;
+  type: TransactionType;
+  date: Date;
+  ticker?: Ticker;
+  units?: number;
+  unitPrice?: Money;
+  fees?: Money;
+  netTransactionValue?: Money;
+}): TransactionRecord {
   return {
     row,
     type,
@@ -338,12 +349,6 @@ describe('calculateAggregates', () => {
         tx({ row: 3, type: 'ROC', date: new Date('2022-02-01'), netTransactionValue: -1 }),
       ]),
     ).toThrow(/Returns of capital/);
-  });
-
-  it('rejects unknown transaction types', () => {
-    expect(() =>
-      calculateAggregates([tx({ row: 2, type: 'DIV', date: new Date('2022-01-01') })]),
-    ).toThrow(/Unknown transaction type/);
   });
 
   it('rejects out-of-order dates', () => {

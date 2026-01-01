@@ -7,24 +7,45 @@ import {
   TRANSACTION_TYPE_STAKE_REWARD,
   TRANSACTION_TYPE_NON_CASH_DIST,
   TRANSACTION_TYPE_RETURN_OF_CAPITAL,
+  type TransactionType,
 } from './constants';
+import type { Money, Ticker, TransactionRecord } from './financial_types';
 
-function _applyBuy(prev, transaction) {
-  return {
-    unitsOwned: prev.unitsOwned + transaction.units,
-    totalCost: prev.totalCost + transaction.unitPrice * transaction.units + transaction.fees,
-    gain: 0,
-  };
-}
+export type PositionSnapshot = {
+  unitsOwned: number;
+  totalCost: Money;
+};
 
-const _applyDrip = _applyBuy;
+export type PortfolioPositions = Record<Ticker, PositionSnapshot>;
+
+export type PostTradeSnapshot = PositionSnapshot & {
+  gain: Money;
+};
+
+export type AggregateResult = {
+  aggregates: PortfolioPositions;
+  effects: readonly PostTradeSnapshot[];
+};
+
+type TransactionReducer = (
+  previousSnapshot: PositionSnapshot,
+  transaction: TransactionRecord,
+) => PostTradeSnapshot;
+
+const applyBuy: TransactionReducer = (prev, transaction) => ({
+  unitsOwned: prev.unitsOwned + transaction.units,
+  totalCost: prev.totalCost + transaction.unitPrice * transaction.units + transaction.fees,
+  gain: 0,
+});
+
+const applyDrip = applyBuy;
 
 // Transfers can be the first event for a ticker (e.g., external ACB seeding).
 // Treat TRF_IN/TRF_OUT as ACB changes, so paired transfers cancel but unpaired
 // transfers establish or remove cost base.
-const _applyTrfIn = _applyBuy;
+const applyTrfIn = applyBuy;
 
-function _applyTrfOut(prev, transaction) {
+const applyTrfOut: TransactionReducer = (prev, transaction) => {
   if (prev.unitsOwned <= 0) {
     throw new Error(
       `[${transaction.row}]: Cannot have a TRF_OUT transaction without owning any units.`,
@@ -50,9 +71,9 @@ function _applyTrfOut(prev, transaction) {
     totalCost: prev.totalCost - transaction.unitPrice * transaction.units,
     gain: 0,
   };
-}
+};
 
-function _applySell(prev, transaction) {
+const applySell: TransactionReducer = (prev, transaction) => {
   if (prev.unitsOwned <= 0) {
     throw new Error(
       `[${transaction.row}]: Cannot have a Sell transaction without owning any units.`,
@@ -73,17 +94,15 @@ function _applySell(prev, transaction) {
     totalCost: prev.totalCost - costBase,
     gain: proceedsOfSale - costBase,
   };
-}
+};
 
-function _applyStakeReward(prev, transaction) {
-  return {
-    unitsOwned: prev.unitsOwned + transaction.units,
-    totalCost: prev.totalCost,
-    gain: 0,
-  };
-}
+const applyStakeReward: TransactionReducer = (prev, transaction) => ({
+  unitsOwned: prev.unitsOwned + transaction.units,
+  totalCost: prev.totalCost,
+  gain: 0,
+});
 
-function _applyNcdis(prev, transaction) {
+const applyNcdis: TransactionReducer = (prev, transaction) => {
   if (transaction.netTransactionValue < 0) {
     throw new Error(
       `[${transaction.row}]: Non-cash distributions should have a positive nominal net transaction value.`,
@@ -95,9 +114,9 @@ function _applyNcdis(prev, transaction) {
     unitsOwned: prev.unitsOwned,
     gain: 0,
   };
-}
+};
 
-function _applyRoc(prev, transaction) {
+const applyRoc: TransactionReducer = (prev, transaction) => {
   if (transaction.netTransactionValue < 0) {
     throw new Error(
       `[${transaction.row}]: Returns of capital should have a positive nominal net transaction value`,
@@ -109,26 +128,22 @@ function _applyRoc(prev, transaction) {
     unitsOwned: prev.unitsOwned,
     gain: 0,
   };
-}
-
-const REDUCERS = {
-  [TRANSACTION_TYPE_TRF_IN]: _applyTrfIn,
-  [TRANSACTION_TYPE_BUY]: _applyBuy,
-  [TRANSACTION_TYPE_DRIP]: _applyDrip,
-  [TRANSACTION_TYPE_TRF_OUT]: _applyTrfOut,
-  [TRANSACTION_TYPE_SELL]: _applySell,
-  [TRANSACTION_TYPE_STAKE_REWARD]: _applyStakeReward,
-  [TRANSACTION_TYPE_NON_CASH_DIST]: _applyNcdis,
-  [TRANSACTION_TYPE_RETURN_OF_CAPITAL]: _applyRoc,
 };
 
-export function calculateAggregates(transactions) {
-  const { aggregates, effects } = transactions.reduce(
-    ({ aggregates, effects }, transaction, i) => {
-      if (!(transaction.type in REDUCERS)) {
-        throw new Error(`[${transaction.row}]: Unknown transaction type: ${transaction.type}`);
-      }
+const REDUCERS: Record<TransactionType, TransactionReducer> = {
+  [TRANSACTION_TYPE_TRF_IN]: applyTrfIn,
+  [TRANSACTION_TYPE_BUY]: applyBuy,
+  [TRANSACTION_TYPE_DRIP]: applyDrip,
+  [TRANSACTION_TYPE_TRF_OUT]: applyTrfOut,
+  [TRANSACTION_TYPE_SELL]: applySell,
+  [TRANSACTION_TYPE_STAKE_REWARD]: applyStakeReward,
+  [TRANSACTION_TYPE_NON_CASH_DIST]: applyNcdis,
+  [TRANSACTION_TYPE_RETURN_OF_CAPITAL]: applyRoc,
+};
 
+export function calculateAggregates(transactions: readonly TransactionRecord[]): AggregateResult {
+  return transactions.reduce(
+    ({ aggregates, effects }, transaction, i) => {
       const previousTransaction = i > 0 ? transactions[i - 1] : null;
       if (previousTransaction && transaction.date.getTime() < previousTransaction.date.getTime()) {
         throw new Error(
@@ -146,7 +161,7 @@ export function calculateAggregates(transactions) {
       return {
         aggregates: {
           ...aggregates,
-          [transaction.ticker]: {
+          [transaction.ticker]: <PositionSnapshot>{
             unitsOwned: effect.unitsOwned,
             totalCost: effect.totalCost,
           },
@@ -155,17 +170,8 @@ export function calculateAggregates(transactions) {
       };
     },
     {
-      aggregates: {},
-      effects: [],
-      /**
-       * aggregates: { [ticker]: { unitsOwned: number, totalCost: number } }
-       * effects: [ {unitsOwned: number, totalCost: number, gain?: number | undefined } ]
-       */
+      aggregates: <PortfolioPositions>{},
+      effects: new Array<PostTradeSnapshot>(),
     },
   );
-
-  return {
-    aggregates,
-    effects,
-  };
 }

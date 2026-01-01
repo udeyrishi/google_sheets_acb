@@ -1,4 +1,3 @@
-import type { TransactionType } from './constants';
 import {
   COL_DATE,
   COL_TICKER,
@@ -11,26 +10,10 @@ import {
   type ColTitle,
   ALL_KNOWN_COL_TITLES,
 } from './constants';
-
-export type SheetScalar = string | number | boolean | Date | null;
-
-export type SheetRow = readonly SheetScalar[];
-
-export type SheetTable = readonly SheetRow[];
+import type { SheetRow, SheetScalar } from './g_sheet_types';
+import type { TransactionRecord } from './financial_types';
 
 export type ColumnIndices = Record<ColTitle, number>;
-
-export type Money = number;
-
-export type TransactionRecord = {
-  date: Date;
-  ticker: string;
-  type: TransactionType;
-  units: number;
-  unitPrice: Money;
-  fees: Money;
-  netTransactionValue: Money;
-};
 
 function parseTransactionType(row: SheetRow, columnIndices: ColumnIndices) {
   const rawTransactionType = row[columnIndices[COL_TYPE]];
@@ -90,10 +73,12 @@ function parseNumberValue(value: SheetScalar, label: string): number {
 }
 
 export function parseTransactionRecord(
+  rowNumber: number,
   row: SheetRow,
   columnIndices: ColumnIndices,
 ): TransactionRecord {
   return {
+    row: rowNumber,
     date: parseDateValue(row[columnIndices[COL_DATE]], 'Transaction date'),
     ticker: parseStringValue(row[columnIndices[COL_TICKER]], 'Ticker'),
     type: parseTransactionType(row, columnIndices),
