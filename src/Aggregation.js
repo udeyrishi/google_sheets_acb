@@ -25,7 +25,7 @@ function _applyTrfOut(prev, transaction) {
   }
 
   if (transaction.units > prev.unitsOwned) {
-    throw new Error(`[${transaction.row}]: Cannot transfer out more units than owned.`)
+    throw new Error(`[${transaction.row}]: Cannot transfer out more units (${transaction.units}) than owned (${prev.unitsOwned}).`)
   }
 
   const globalAcbPerUnitSoFar = prev.totalCost / prev.unitsOwned;
