@@ -52,6 +52,6 @@ export default [
     },
   },
   {
-    ignores: ['build/**', 'node_modules/**', '.pnp.cjs', '.pnp.loader.mjs'],
+    ignores: ['.yarn/**', 'build/**', 'node_modules/**', '.pnp.cjs', '.pnp.loader.mjs'],
   },
 ];

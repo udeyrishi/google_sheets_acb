@@ -1,16 +1,7 @@
 {
-  "compilerOptions": {
-    "target": "ES2019",
-    "module": "esnext",
-    "rootDir": "src",
-    "outDir": "build/tmp",
-    "esModuleInterop": true,
-    "moduleResolution": "node",
-    "forceConsistentCasingInFileNames": true,
-    "allowJs": true,
-    "checkJs": false,
-    "strict": false
-  },
-  "include": ["src/**/*"],
-  "exclude": ["**/*.test.js", "**/*.test.ts"]
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.test.json" }
+  ]
 }

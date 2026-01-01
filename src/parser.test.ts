@@ -85,10 +85,7 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     expect(() =>
-      parseTransactionRecord(
-        ['DIV', new Date('2021-05-20'), 'ABC', 1, 0, 10, 10],
-        indices,
-      ),
+      parseTransactionRecord(['DIV', new Date('2021-05-20'), 'ABC', 1, 0, 10, 10], indices),
     ).toThrow(/Unknown transaction type/i);
   });
 
@@ -145,7 +142,10 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     expect(() =>
-      parseTransactionRecord(['BUY', new Date('2021-05-20'), 123, 10, 0, 151.07, 478898.24], indices),
+      parseTransactionRecord(
+        ['BUY', new Date('2021-05-20'), 123, 10, 0, 151.07, 478898.24],
+        indices,
+      ),
     ).toThrow(/Ticker/);
   });
 
@@ -162,7 +162,10 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     expect(() =>
-      parseTransactionRecord(['BUY', new Date('2021-05-20'), '   ', 10, 0, 151.07, 478898.24], indices),
+      parseTransactionRecord(
+        ['BUY', new Date('2021-05-20'), '   ', 10, 0, 151.07, 478898.24],
+        indices,
+      ),
     ).toThrow(/Ticker/);
   });
 
@@ -179,7 +182,10 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     expect(() =>
-      parseTransactionRecord(['BUY', new Date('2021-05-20'), 'TSE:SHOP', 'abc', 0, 151.07, 478898.24], indices),
+      parseTransactionRecord(
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 'abc', 0, 151.07, 478898.24],
+        indices,
+      ),
     ).toThrow(/Units/);
   });
 
@@ -196,7 +202,10 @@ describe('Parser helpers', () => {
     const indices = calculateColumnIndices(headers);
 
     expect(() =>
-      parseTransactionRecord(['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, '', 151.07, 478898.24], indices),
+      parseTransactionRecord(
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, '', 151.07, 478898.24],
+        indices,
+      ),
     ).toThrow(/Fees/);
   });
 

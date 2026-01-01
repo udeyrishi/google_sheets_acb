@@ -110,7 +110,8 @@ export function parseTransactionRecord(
 export function calculateColumnIndices(titleRow: SheetRow): ColumnIndices {
   function indexOfColumn(columnName: ColTitle) {
     const index = titleRow.findIndex(
-      (title) => typeof title === 'string' && title.trim().toLowerCase() === columnName.toLowerCase(),
+      (title) =>
+        typeof title === 'string' && title.trim().toLowerCase() === columnName.toLowerCase(),
     );
 
     if (index < 0) {

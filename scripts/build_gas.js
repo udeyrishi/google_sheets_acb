@@ -19,7 +19,7 @@ const result = await build({
   globalName: GLOBAL_NAME,
   target: 'es2019',
   platform: 'browser',
-  tsconfig: path.join(rootDir, 'tsconfig.json'),
+  tsconfig: path.join(rootDir, 'tsconfig.app.json'),
   outfile: outFile,
   metafile: true,
   write: false,
