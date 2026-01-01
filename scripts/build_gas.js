@@ -4,7 +4,7 @@ const { orderModules } = require("./utils/deps_utils");
 const { stripForGas } = require("./utils/strip_utils");
 
 const rootDir = path.resolve(__dirname, "..");
-const srcDir = path.join(rootDir, "src");
+const srcDir = path.resolve(rootDir, process.argv[2] || "src");
 const outDir = path.join(rootDir, "build");
 const outFile = path.join(outDir, "Code.gs");
 const START_TAG = "// @gas-remove-start";
