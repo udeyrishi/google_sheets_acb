@@ -1,4 +1,4 @@
-const { _parseTransactionRecord, _calculateColumnIndices } = require("./Parser");
+import { _parseTransactionRecord, _calculateColumnIndices } from "./parser";
 
 describe("Parser helpers", () => {
   it("maps column indices for normalized headers", () => {

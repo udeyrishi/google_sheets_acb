@@ -1,4 +1,4 @@
-const { ACB_UNIT, UNITS_OWNED, TRANSACTION_EFFECTS, ASSET_REPORT } = require("./Code");
+import { ACB_UNIT, UNITS_OWNED, TRANSACTION_EFFECTS, ASSET_REPORT } from "./main";
 
 describe("ACB calculations", () => {
   it("calculates ACB per unit for a single buy", () => {
@@ -8,7 +8,7 @@ describe("ACB calculations", () => {
     ];
 
     expect(UNITS_OWNED("ABC", null, data)).toBe(10);
-    expect(ACB_UNIT("ABC", null, data)).toBeCloseTo(2.1, 6);
+    expect(ACB_UNIT("ABC", data)).toBeCloseTo(2.1, 6);
   });
 });
 

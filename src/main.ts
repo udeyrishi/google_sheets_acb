@@ -1,10 +1,5 @@
-// @gas-remove-start
-if (typeof module !== "undefined" && module && module.exports) {
-  Object.assign(globalThis, require("./Constants"));
-  Object.assign(globalThis, require("./Parser"));
-  Object.assign(globalThis, require("./Aggregation"));
-}
-// @gas-remove-end
+import { _calculateColumnIndices, _parseTransactionRecord } from "./parser";
+import { _calculateAggregates } from "./aggregation";
 
 /**
  * Calculates the ACB per unit.
@@ -13,7 +8,7 @@ if (typeof module !== "undefined" && module && module.exports) {
  * @return The ACB per unit for the specified ticker given the data
  * @customfunction
  */
-function ACB_UNIT(ticker, data) {
+export function ACB_UNIT(ticker, data) {
   const columnIndices = _calculateColumnIndices(data[0])
 
   const transactions = data
@@ -33,7 +28,7 @@ function ACB_UNIT(ticker, data) {
  * @return The total units owned for the ticker
  * @customfunction
  */
-function UNITS_OWNED(ticker, _account, data) {
+export function UNITS_OWNED(ticker, _account, data) {
   if (_account) {
     throw new Error("account param is no longer supported.")
   }
@@ -53,7 +48,7 @@ function UNITS_OWNED(ticker, _account, data) {
 /**
  * Calculates the full current report for all assets in the dataset
  */
-function ASSET_REPORT(data) {
+export function ASSET_REPORT(data) {
   const filledData = data
     .filter(row => row.findIndex(col => Boolean(col)) >= 0)
 
@@ -64,10 +59,13 @@ function ASSET_REPORT(data) {
     .map((row, i) => ({ row: i + 2, ..._parseTransactionRecord(row, columnIndices) }))
 
   const aggregatedTable = [...Object.entries(_calculateAggregates(transactions).aggregates)]
+    // @ts-ignore
     .filter(([_ticker, aggregated]) => aggregated.unitsOwned > 0)
     .map(([ticker, aggregated]) => {
+      // @ts-ignore
       const acbPerUnit = aggregated.totalCost / aggregated.unitsOwned
       return [ticker, {
+        // @ts-ignore
         ...aggregated,
         acbPerUnit,
       }]
@@ -87,7 +85,7 @@ function ASSET_REPORT(data) {
   return [titleColumn, ...aggregatedTable]
 }
 
-function TRANSACTION_EFFECTS(data) {
+export function TRANSACTION_EFFECTS(data) {
   const filledData = data
     .filter(row => row.findIndex(col => Boolean(col)) >= 0)
 
@@ -108,14 +106,3 @@ function TRANSACTION_EFFECTS(data) {
     ...formattedTable
   ]
 }
-
-// @gas-remove-start
-if (typeof module !== "undefined" && module && module.exports) {
-  module.exports = {
-    ACB_UNIT,
-    UNITS_OWNED,
-    ASSET_REPORT,
-    TRANSACTION_EFFECTS,
-  };
-}
-// @gas-remove-end

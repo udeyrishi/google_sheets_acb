@@ -1,10 +1,15 @@
-// @gas-remove-start
-if (typeof module !== "undefined" && module && module.exports) {
-  Object.assign(globalThis, require("./Constants"));
-}
-// @gas-remove-end
+import {
+  _COL_DATE,
+  _COL_TICKER,
+  _COL_TYPE,
+  _COL_UNITS,
+  _COL_UNIT_PRICE,
+  _COL_FEES,
+  _COL_NTV,
+  _ALL_KNOWN_TRANSACTION_TYPES,
+} from "./constants";
 
-function _parseTransactionRecord(row, columnIndices) {
+export function _parseTransactionRecord(row, columnIndices) {
   const rawTransactionType = row[columnIndices[_COL_TYPE]];
 
   const transactionTypeIndex = _ALL_KNOWN_TRANSACTION_TYPES.findIndex(
@@ -26,7 +31,7 @@ function _parseTransactionRecord(row, columnIndices) {
   }
 }
 
-function _calculateColumnIndices(titleRow) {
+export function _calculateColumnIndices(titleRow) {
   function indexOfColumn(titles, columnName) {
     const index = titles.findIndex((title) => title.toLowerCase() === columnName.toLowerCase());
 
@@ -47,12 +52,3 @@ function _calculateColumnIndices(titleRow) {
     [_COL_NTV]: indexOfColumn(titleRow, _COL_NTV),
   }
 }
-
-// @gas-remove-start
-if (typeof module !== "undefined" && module && module.exports) {
-  module.exports = {
-    _parseTransactionRecord,
-    _calculateColumnIndices,
-  };
-}
-// @gas-remove-end

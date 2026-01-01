@@ -1,8 +1,13 @@
-// @gas-remove-start
-if (typeof module !== "undefined" && module && module.exports) {
-  Object.assign(globalThis, require("./Constants"));
-}
-// @gas-remove-end
+import {
+  _TRANSACTION_TYPE_TRF_IN,
+  _TRANSACTION_TYPE_BUY,
+  _TRANSACTION_TYPE_DRIP,
+  _TRANSACTION_TYPE_TRF_OUT,
+  _TRANSACTION_TYPE_SELL,
+  _TRANSACTION_TYPE_STAKE_REWARD,
+  _TRANSACTION_TYPE_NON_CASH_DIST,
+  _TRANSACTION_TYPE_RETURN_OF_CAPITAL,
+} from "./constants";
 
 function _applyBuy(prev, transaction) {
   return {
@@ -109,7 +114,7 @@ const REDUCERS = {
   [_TRANSACTION_TYPE_RETURN_OF_CAPITAL]: _applyRoc,
 }
 
-function _calculateAggregates(transactions) {
+export function _calculateAggregates(transactions) {
   const { aggregates, effects } = transactions.reduce(({ aggregates, effects }, transaction, i) => {
     if (!(transaction.type in REDUCERS)) {
       throw new Error(`[${transaction.row}]: Unknown transaction type: ${transaction.type}`)
@@ -151,11 +156,3 @@ function _calculateAggregates(transactions) {
     effects,
   }
 }
-
-// @gas-remove-start
-if (typeof module !== "undefined" && module && module.exports) {
-  module.exports = {
-    _calculateAggregates,
-  };
-}
-// @gas-remove-end

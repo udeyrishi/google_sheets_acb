@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2019",
-    "module": "commonjs",
+    "module": "esnext",
     "rootDir": "src",
     "outDir": "build/tmp",
     "esModuleInterop": true,
+    "moduleResolution": "node",
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
     "checkJs": false,

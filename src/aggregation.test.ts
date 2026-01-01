@@ -1,4 +1,4 @@
-const { _calculateAggregates } = require("./Aggregation");
+import { _calculateAggregates } from "./aggregation";
 
 function tx({
   row,
