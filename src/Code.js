@@ -13,11 +13,7 @@ if (typeof module !== "undefined" && module && module.exports) {
  * @return The ACB per unit for the specified ticker given the data
  * @customfunction
  */
-function ACB_UNIT(ticker, _account, data) {
-  if (_account) {
-    throw new Error("account param is no longer supported.")
-  }
-
+function ACB_UNIT(ticker, data) {
   const columnIndices = _calculateColumnIndices(data[0])
 
   const transactions = data
