@@ -1,37 +1,37 @@
 import {
-  _COL_DATE,
-  _COL_TICKER,
-  _COL_TYPE,
-  _COL_UNITS,
-  _COL_UNIT_PRICE,
-  _COL_FEES,
-  _COL_NTV,
-  _ALL_KNOWN_TRANSACTION_TYPES,
+  COL_DATE,
+  COL_TICKER,
+  COL_TYPE,
+  COL_UNITS,
+  COL_UNIT_PRICE,
+  COL_FEES,
+  COL_NET_TRANSACTION_VALUE,
+  ALL_KNOWN_TRANSACTION_TYPES,
 } from "./constants";
 
-export function _parseTransactionRecord(row, columnIndices) {
-  const rawTransactionType = row[columnIndices[_COL_TYPE]];
+export function parseTransactionRecord(row, columnIndices) {
+  const rawTransactionType = row[columnIndices[COL_TYPE]];
 
-  const transactionTypeIndex = _ALL_KNOWN_TRANSACTION_TYPES.findIndex(
+  const transactionTypeIndex = ALL_KNOWN_TRANSACTION_TYPES.findIndex(
     (knownTransactionType) => rawTransactionType.toLowerCase().trim() === knownTransactionType.toLowerCase()
   );
   if (transactionTypeIndex < 0) {
     throw new Error(`Unknown transaction type: ${rawTransactionType}`)
   }
-  const santizedTransactionType = _ALL_KNOWN_TRANSACTION_TYPES[transactionTypeIndex]
+  const santizedTransactionType = ALL_KNOWN_TRANSACTION_TYPES[transactionTypeIndex]
 
   return {
-    date: row[columnIndices[_COL_DATE]],
-    ticker: row[columnIndices[_COL_TICKER]].trim(),
+    date: row[columnIndices[COL_DATE]],
+    ticker: row[columnIndices[COL_TICKER]].trim(),
     type: santizedTransactionType,
-    units: row[columnIndices[_COL_UNITS]],
-    unitPrice: row[columnIndices[_COL_UNIT_PRICE]],
-    fees: row[columnIndices[_COL_FEES]],
-    netTransactionValue: row[columnIndices[_COL_NTV]],
+    units: row[columnIndices[COL_UNITS]],
+    unitPrice: row[columnIndices[COL_UNIT_PRICE]],
+    fees: row[columnIndices[COL_FEES]],
+    netTransactionValue: row[columnIndices[COL_NET_TRANSACTION_VALUE]],
   }
 }
 
-export function _calculateColumnIndices(titleRow) {
+export function calculateColumnIndices(titleRow) {
   function indexOfColumn(titles, columnName) {
     const index = titles.findIndex((title) => title.toLowerCase() === columnName.toLowerCase());
 
@@ -43,12 +43,12 @@ export function _calculateColumnIndices(titleRow) {
   }
 
   return {
-    [_COL_DATE]: indexOfColumn(titleRow, _COL_DATE),
-    [_COL_TICKER]: indexOfColumn(titleRow, _COL_TICKER),
-    [_COL_TYPE]: indexOfColumn(titleRow, _COL_TYPE),
-    [_COL_UNITS]: indexOfColumn(titleRow, _COL_UNITS),
-    [_COL_UNIT_PRICE]: indexOfColumn(titleRow, _COL_UNIT_PRICE),
-    [_COL_FEES]: indexOfColumn(titleRow, _COL_FEES),
-    [_COL_NTV]: indexOfColumn(titleRow, _COL_NTV),
+    [COL_DATE]: indexOfColumn(titleRow, COL_DATE),
+    [COL_TICKER]: indexOfColumn(titleRow, COL_TICKER),
+    [COL_TYPE]: indexOfColumn(titleRow, COL_TYPE),
+    [COL_UNITS]: indexOfColumn(titleRow, COL_UNITS),
+    [COL_UNIT_PRICE]: indexOfColumn(titleRow, COL_UNIT_PRICE),
+    [COL_FEES]: indexOfColumn(titleRow, COL_FEES),
+    [COL_NET_TRANSACTION_VALUE]: indexOfColumn(titleRow, COL_NET_TRANSACTION_VALUE),
   }
 }

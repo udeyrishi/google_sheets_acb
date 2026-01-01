@@ -1,4 +1,4 @@
-import { _calculateAggregates } from "./aggregation";
+import { calculateAggregates } from "./aggregation";
 
 function tx({
   row,
@@ -22,7 +22,7 @@ function tx({
   };
 }
 
-describe("_calculateAggregates", () => {
+describe("calculateAggregates", () => {
   it("computes global ACB, units, and gains for buys and sells", () => {
     const transactions = [
       tx({ row: 2, type: "BUY", date: new Date("2021-05-20"), units: 10, unitPrice: 10 }),
@@ -30,7 +30,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 4, type: "SELL", date: new Date("2021-06-01"), units: 5, unitPrice: 15 }),
     ];
 
-    const { aggregates, effects } = _calculateAggregates(transactions);
+    const { aggregates, effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -46,7 +46,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 3, type: "SELL", date: new Date("2021-06-01"), units: 10, unitPrice: 12 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -59,7 +59,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10, fees: 1 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 101, gain: 0 },
@@ -72,7 +72,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 3, type: "SELL", date: new Date("2022-01-02"), units: 5, unitPrice: 12, fees: 3 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects[1]).toEqual({ unitsOwned: 5, totalCost: 50, gain: 7 });
   });
@@ -83,7 +83,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 3, type: "DRIP", date: new Date("2022-01-02"), units: 2, unitPrice: 11 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -97,7 +97,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 3, type: "STK_RWD", date: new Date("2022-01-02"), units: 3 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -111,7 +111,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 3, type: "NCDIS", date: new Date("2022-02-01"), netTransactionValue: 5 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -125,7 +125,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 3, type: "ROC", date: new Date("2022-02-01"), netTransactionValue: 2 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -140,7 +140,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 4, type: "TRF_IN", date: new Date("2022-02-02"), units: 5, unitPrice: 10 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -155,7 +155,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 3, type: "SELL", date: new Date("2021-10-08"), units: 10, unitPrice: 177.5 }),
     ];
 
-    const { effects, aggregates } = _calculateAggregates(transactions);
+    const { effects, aggregates } = calculateAggregates(transactions);
 
     expect(effects[0]).toEqual({ unitsOwned: 100, totalCost: 15107, gain: 0 });
     expect(effects[1].unitsOwned).toBe(90);
@@ -175,7 +175,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 7, type: "DRIP", date: new Date("2022-01-06"), units: 2, unitPrice: 11 }),
     ];
 
-    const { aggregates, effects } = _calculateAggregates(transactions);
+    const { aggregates, effects } = calculateAggregates(transactions);
 
     // After SELL: ACB per unit before sale = 161 / 15 = 10.733333..., cost base = 32.2,
     // proceeds = (3 * 14) - 2 = 40, gain = 7.8, new total cost = 161 - 32.2 = 128.8.
@@ -202,7 +202,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 5, type: "DRIP", date: new Date("2022-01-04"), ticker: "TSE:BBB", units: 1, unitPrice: 22 }),
     ];
 
-    const { aggregates, effects } = _calculateAggregates(transactions);
+    const { aggregates, effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -224,7 +224,7 @@ describe("_calculateAggregates", () => {
       tx({ row: 5, type: "SELL", date: new Date("2022-01-04"), ticker: "TSE:AAA", units: 4, unitPrice: 12 }),
     ];
 
-    const { effects } = _calculateAggregates(transactions);
+    const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual([
       { unitsOwned: 10, totalCost: 100, gain: 0 },
@@ -236,13 +236,13 @@ describe("_calculateAggregates", () => {
 
   it("rejects sells when starting with a sell", () => {
     expect(() =>
-      _calculateAggregates([tx({ row: 2, type: "SELL", date: new Date("2022-01-01"), units: 1, unitPrice: 10 })])
+      calculateAggregates([tx({ row: 2, type: "SELL", date: new Date("2022-01-01"), units: 1, unitPrice: 10 })])
     ).toThrow(/Cannot have a Sell transaction/);
   });
 
   it("rejects sells that exceed the units owned", () => {
     expect(() =>
-      _calculateAggregates([
+      calculateAggregates([
         tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 2, unitPrice: 10 }),
         tx({ row: 3, type: "SELL", date: new Date("2022-01-02"), units: 3, unitPrice: 10 }),
       ])
@@ -251,7 +251,7 @@ describe("_calculateAggregates", () => {
 
   it("rejects TRF_OUT when unit price does not match ACB per unit", () => {
     expect(() =>
-      _calculateAggregates([
+      calculateAggregates([
         tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10 }),
         tx({ row: 3, type: "TRF_OUT", date: new Date("2022-01-02"), units: 5, unitPrice: 11 }),
       ])
@@ -262,7 +262,7 @@ describe("_calculateAggregates", () => {
     const base = [tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10 })];
 
     expect(() =>
-      _calculateAggregates([...base, tx({ row: 3, type: "NCDIS", date: new Date("2022-02-01"), netTransactionValue: -1 })])
+      calculateAggregates([...base, tx({ row: 3, type: "NCDIS", date: new Date("2022-02-01"), netTransactionValue: -1 })])
     ).toThrow(/Non-cash distributions/);
   });
 
@@ -270,19 +270,19 @@ describe("_calculateAggregates", () => {
     const base = [tx({ row: 2, type: "BUY", date: new Date("2022-01-01"), units: 10, unitPrice: 10 })];
 
     expect(() =>
-      _calculateAggregates([...base, tx({ row: 3, type: "ROC", date: new Date("2022-02-01"), netTransactionValue: -1 })])
+      calculateAggregates([...base, tx({ row: 3, type: "ROC", date: new Date("2022-02-01"), netTransactionValue: -1 })])
     ).toThrow(/Returns of capital/);
   });
 
   it("rejects unknown transaction types", () => {
     expect(() =>
-      _calculateAggregates([tx({ row: 2, type: "DIV", date: new Date("2022-01-01") })])
+      calculateAggregates([tx({ row: 2, type: "DIV", date: new Date("2022-01-01") })])
     ).toThrow(/Unknown transaction type/);
   });
 
   it("rejects out-of-order dates", () => {
     expect(() =>
-      _calculateAggregates([
+      calculateAggregates([
         tx({ row: 2, type: "BUY", date: new Date("2022-02-01"), units: 10, unitPrice: 10 }),
         tx({ row: 3, type: "BUY", date: new Date("2022-01-01"), units: 1, unitPrice: 10 }),
       ])

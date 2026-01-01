@@ -1,12 +1,12 @@
 import {
-  _TRANSACTION_TYPE_TRF_IN,
-  _TRANSACTION_TYPE_BUY,
-  _TRANSACTION_TYPE_DRIP,
-  _TRANSACTION_TYPE_TRF_OUT,
-  _TRANSACTION_TYPE_SELL,
-  _TRANSACTION_TYPE_STAKE_REWARD,
-  _TRANSACTION_TYPE_NON_CASH_DIST,
-  _TRANSACTION_TYPE_RETURN_OF_CAPITAL,
+  TRANSACTION_TYPE_TRF_IN,
+  TRANSACTION_TYPE_BUY,
+  TRANSACTION_TYPE_DRIP,
+  TRANSACTION_TYPE_TRF_OUT,
+  TRANSACTION_TYPE_SELL,
+  TRANSACTION_TYPE_STAKE_REWARD,
+  TRANSACTION_TYPE_NON_CASH_DIST,
+  TRANSACTION_TYPE_RETURN_OF_CAPITAL,
 } from "./constants";
 
 function _applyBuy(prev, transaction) {
@@ -104,17 +104,17 @@ function _applyRoc(prev, transaction) {
 }
 
 const REDUCERS = {
-  [_TRANSACTION_TYPE_TRF_IN]: _applyTrfIn,
-  [_TRANSACTION_TYPE_BUY]: _applyBuy,
-  [_TRANSACTION_TYPE_DRIP]: _applyDrip,
-  [_TRANSACTION_TYPE_TRF_OUT]: _applyTrfOut,
-  [_TRANSACTION_TYPE_SELL]: _applySell,
-  [_TRANSACTION_TYPE_STAKE_REWARD]: _applyStakeReward,
-  [_TRANSACTION_TYPE_NON_CASH_DIST]: _applyNcdis,
-  [_TRANSACTION_TYPE_RETURN_OF_CAPITAL]: _applyRoc,
+  [TRANSACTION_TYPE_TRF_IN]: _applyTrfIn,
+  [TRANSACTION_TYPE_BUY]: _applyBuy,
+  [TRANSACTION_TYPE_DRIP]: _applyDrip,
+  [TRANSACTION_TYPE_TRF_OUT]: _applyTrfOut,
+  [TRANSACTION_TYPE_SELL]: _applySell,
+  [TRANSACTION_TYPE_STAKE_REWARD]: _applyStakeReward,
+  [TRANSACTION_TYPE_NON_CASH_DIST]: _applyNcdis,
+  [TRANSACTION_TYPE_RETURN_OF_CAPITAL]: _applyRoc,
 }
 
-export function _calculateAggregates(transactions) {
+export function calculateAggregates(transactions) {
   const { aggregates, effects } = transactions.reduce(({ aggregates, effects }, transaction, i) => {
     if (!(transaction.type in REDUCERS)) {
       throw new Error(`[${transaction.row}]: Unknown transaction type: ${transaction.type}`)

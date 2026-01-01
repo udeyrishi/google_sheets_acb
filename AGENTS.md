@@ -38,8 +38,8 @@ This repository contains a small Google Apps Script codebase for a Google Sheets
 ## Coding Style & Naming Conventions
 - Indentation: follow the existing file style (current files mix 2- and 4-space indents).
 - Public custom functions are uppercase with underscores (e.g., `ASSET_REPORT`).
-- Internal helpers use a leading underscore (e.g., `_calculateAggregates`).
-- Constants are `UPPER_SNAKE_CASE` (e.g., `_TRANSACTION_TYPE_SELL`).
+- Internal helpers use lower camelCase (e.g., `calculateAggregates`).
+- Constants use `UPPER_SNAKE_CASE` (e.g., `TRANSACTION_TYPE_SELL`, `COL_DATE`).
 - Use TypeScript in `src/`; GAS receives bundled JS output.
 
 ## Testing Guidelines

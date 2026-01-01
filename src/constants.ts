@@ -1,27 +1,27 @@
-export const _COL_DATE = "Date";
-export const _COL_TICKER = "Ticker";
-export const _COL_TYPE = "Type";
-export const _COL_UNITS = "Units";
-export const _COL_UNIT_PRICE = "Unit Price";
-export const _COL_FEES = "Fees";
-export const _COL_NTV = "Net Transaction Value";
+export const COL_DATE = "Date";
+export const COL_TICKER = "Ticker";
+export const COL_TYPE = "Type";
+export const COL_UNITS = "Units";
+export const COL_UNIT_PRICE = "Unit Price";
+export const COL_FEES = "Fees";
+export const COL_NET_TRANSACTION_VALUE = "Net Transaction Value";
 
-export const _TRANSACTION_TYPE_TRF_IN = "TRF_IN";
-export const _TRANSACTION_TYPE_TRF_OUT = "TRF_OUT";
-export const _TRANSACTION_TYPE_BUY = "BUY";
-export const _TRANSACTION_TYPE_SELL = "SELL";
-export const _TRANSACTION_TYPE_DRIP = "DRIP";
-export const _TRANSACTION_TYPE_STAKE_REWARD = "STK_RWD";
-export const _TRANSACTION_TYPE_NON_CASH_DIST = "NCDIS";
-export const _TRANSACTION_TYPE_RETURN_OF_CAPITAL = "ROC";
+export const TRANSACTION_TYPE_TRF_IN = "TRF_IN";
+export const TRANSACTION_TYPE_TRF_OUT = "TRF_OUT";
+export const TRANSACTION_TYPE_BUY = "BUY";
+export const TRANSACTION_TYPE_SELL = "SELL";
+export const TRANSACTION_TYPE_DRIP = "DRIP";
+export const TRANSACTION_TYPE_STAKE_REWARD = "STK_RWD";
+export const TRANSACTION_TYPE_NON_CASH_DIST = "NCDIS";
+export const TRANSACTION_TYPE_RETURN_OF_CAPITAL = "ROC";
 
-export const _ALL_KNOWN_TRANSACTION_TYPES = [
-  _TRANSACTION_TYPE_TRF_IN,
-  _TRANSACTION_TYPE_TRF_OUT,
-  _TRANSACTION_TYPE_BUY,
-  _TRANSACTION_TYPE_SELL,
-  _TRANSACTION_TYPE_DRIP,
-  _TRANSACTION_TYPE_STAKE_REWARD,
-  _TRANSACTION_TYPE_NON_CASH_DIST,
-  _TRANSACTION_TYPE_RETURN_OF_CAPITAL,
+export const ALL_KNOWN_TRANSACTION_TYPES = [
+  TRANSACTION_TYPE_TRF_IN,
+  TRANSACTION_TYPE_TRF_OUT,
+  TRANSACTION_TYPE_BUY,
+  TRANSACTION_TYPE_SELL,
+  TRANSACTION_TYPE_DRIP,
+  TRANSACTION_TYPE_STAKE_REWARD,
+  TRANSACTION_TYPE_NON_CASH_DIST,
+  TRANSACTION_TYPE_RETURN_OF_CAPITAL,
 ];
