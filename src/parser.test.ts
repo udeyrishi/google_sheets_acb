@@ -1,4 +1,4 @@
-import type { TransactionRecord } from './financial_types';
+import type { TransactionRecord } from './transaction_record';
 import { parseTransactionRecord, calculateColumnIndices } from './parser';
 
 describe('Parser helpers', () => {
@@ -15,9 +15,9 @@ describe('Parser helpers', () => {
 
     const indices = calculateColumnIndices(headers);
 
+    expect(indices.Type).toBe(0);
     expect(indices.Date).toBe(1);
     expect(indices.Ticker).toBe(2);
-    expect(indices.Type).toBe(0);
     expect(indices.Units).toBe(3);
     expect(indices.Fees).toBe(4);
     expect(indices['Unit Price']).toBe(5);
@@ -59,7 +59,7 @@ describe('Parser helpers', () => {
 
     const record = parseTransactionRecord(
       2,
-      [' buy ', new Date('2021-05-20'), ' TSE:SHOP ', 10, 0, 151.07, 478898.24],
+      [' buy ', new Date('2021-05-20'), ' TSE:SHOP ', 10, 0, 151.07, -1510.7],
       indices,
     );
 
@@ -71,7 +71,8 @@ describe('Parser helpers', () => {
       units: 10,
       unitPrice: 151.07,
       fees: 0,
-      netTransactionValue: 478898.24,
+      netTransactionValue: -1510.7,
+      valueMode: 'components',
     });
   });
 
@@ -106,14 +107,15 @@ describe('Parser helpers', () => {
 
     const record = parseTransactionRecord(
       2,
-      ['BUY', new Date('2021-05-20'), 'TSE:SHOP', '1,234.5', '0.25', '1,000.00', '1,234,567.89'],
+      ['BUY', new Date('2021-05-20'), 'TSE:SHOP', '1,234.5', '0.25', '1,000.00', '-1,234,500.25'],
       indices,
     );
 
+    expect(record.valueMode).toBe<TransactionRecord['valueMode']>('components');
     expect(record.units).toBeCloseTo(1234.5, 6);
-    expect(record.fees).toBeCloseTo(0.25, 6);
     expect(record.unitPrice).toBeCloseTo(1000, 6);
-    expect(record.netTransactionValue).toBeCloseTo(1234567.89, 6);
+    expect(record.fees).toBeCloseTo(0.25, 6);
+    expect(record.netTransactionValue).toBeCloseTo(-1234500.25, 6);
   });
 
   it('rejects invalid dates', () => {
@@ -179,7 +181,7 @@ describe('Parser helpers', () => {
     ).toThrow(/Ticker/);
   });
 
-  it('rejects non-numeric values for numeric fields', () => {
+  it('rejects non-numeric values for units', () => {
     const headers = [
       'Type',
       'Date',
@@ -200,7 +202,7 @@ describe('Parser helpers', () => {
     ).toThrow(/Units/);
   });
 
-  it('rejects empty numeric strings for numeric fields', () => {
+  it('rejects non-numeric values for unit price', () => {
     const headers = [
       'Type',
       'Date',
@@ -215,13 +217,55 @@ describe('Parser helpers', () => {
     expect(() =>
       parseTransactionRecord(
         1,
-        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, '', 151.07, 478898.24],
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, 0, 'abc', 478898.24],
         indices,
       ),
-    ).toThrow(/Fees/);
+    ).toThrow(/Unit price/);
   });
 
-  it('rejects non-finite numbers for numeric fields', () => {
+  it('rejects missing units when only unit price is provided', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(
+        1,
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', '', 0, 151.07, ''],
+        indices,
+      ),
+    ).toThrow(/Incomplete transaction data/);
+  });
+
+  it('rejects missing unit price when only units are provided', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(
+        1,
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, 0, '', ''],
+        indices,
+      ),
+    ).toThrow(/Incomplete transaction data/);
+  });
+
+  it('rejects non-finite numbers for unit price', () => {
     const headers = [
       'Type',
       'Date',
@@ -261,5 +305,201 @@ describe('Parser helpers', () => {
         indices,
       ),
     ).toThrow(/Net transaction value/);
+  });
+
+  it('computes net transaction values when missing', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    const record = parseTransactionRecord(
+      2,
+      ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, 1, 10, ''],
+      indices,
+    );
+
+    expect(record.netTransactionValue).toBeCloseTo(-101, 6);
+    expect(record.valueMode).toBe('components');
+  });
+
+  it('rejects net transaction values that do not match the expected formula', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(
+        2,
+        ['SELL', new Date('2021-05-20'), 'TSE:SHOP', 10, 1, 10, 50],
+        indices,
+      ),
+    ).toThrow(/did not match expected/);
+  });
+
+  it('computes unit price when units + NTV are provided', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    const record = parseTransactionRecord(
+      2,
+      ['SELL', new Date('2021-05-20'), 'TSE:SHOP', 10, 1, '', 99],
+      indices,
+    );
+
+    expect(record.valueMode).toBe<TransactionRecord['valueMode']>('components');
+    expect(record.unitPrice).toBeCloseTo(10, 6);
+  });
+
+  it('computes units when unit price + NTV are provided', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    const record = parseTransactionRecord(
+      2,
+      ['SELL', new Date('2021-05-20'), 'TSE:SHOP', '', 1, 10, 99],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.units).toBeCloseTo(10, 6);
+  });
+
+  it('accepts net-only transactions for ROC and NCDIS', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    const record = parseTransactionRecord(
+      2,
+      ['ROC', new Date('2021-05-20'), 'TSE:SHOP', '', '', '', 12.5],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('netOnly');
+    expect(record.netTransactionValue).toBe(12.5);
+  });
+
+  it('allows ROC/NCDIS to carry components and computes NTV', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    const record = parseTransactionRecord(
+      2,
+      ['NCDIS', new Date('2021-05-20'), 'TSE:SHOP', 2, '', 3, ''],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.netTransactionValue).toBeCloseTo(6, 6);
+  });
+
+  it('rejects net-only transactions for non-ROC/NCDIS types', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(
+        2,
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', '', '', '', -10],
+        indices,
+      ),
+    ).toThrow(/Net-only transaction rows are only supported/);
+  });
+
+  it('keeps fees optional for component-based transactions', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    const record = parseTransactionRecord(
+      2,
+      ['BUY', new Date('2021-05-20'), 'TSE:SHOP', 10, '', 10, ''],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.fees).toBeUndefined();
+    expect(record.netTransactionValue).toBeCloseTo(-100, 6);
+  });
+
+  it('rejects rows missing net transaction value and both components', () => {
+    const headers = [
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ];
+    const indices = calculateColumnIndices(headers);
+
+    expect(() =>
+      parseTransactionRecord(
+        2,
+        ['BUY', new Date('2021-05-20'), 'TSE:SHOP', '', '', '', ''],
+        indices,
+      ),
+    ).toThrow(/Incomplete transaction data/);
   });
 });

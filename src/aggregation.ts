@@ -8,8 +8,13 @@ import {
   TRANSACTION_TYPE_NON_CASH_DIST,
   TRANSACTION_TYPE_RETURN_OF_CAPITAL,
   type TransactionType,
-} from './constants';
-import type { Money, Ticker, TransactionRecord } from './financial_types';
+  type Money,
+  type NetValueOnlyTransactionType,
+  type Ticker,
+  type TransactionRecord,
+  type TransactionRecordBase,
+  type TransactionRecordWithComponents,
+} from './transaction_record';
 
 export type PositionSnapshot = {
   unitsOwned: number;
@@ -27,12 +32,17 @@ export type AggregateResult = {
   effects: readonly PostTradeSnapshot[];
 };
 
-type TransactionReducer = (
+type ComponentsTransactionReducer = (
   previousSnapshot: PositionSnapshot,
-  transaction: TransactionRecord,
+  transaction: TransactionRecordWithComponents,
 ) => PostTradeSnapshot;
 
-const applyBuy: TransactionReducer = (prev, transaction) => ({
+type BaseTransactionReducer = (
+  previousSnapshot: PositionSnapshot,
+  transaction: TransactionRecordBase,
+) => PostTradeSnapshot;
+
+const applyBuy: ComponentsTransactionReducer = (prev, transaction) => ({
   unitsOwned: prev.unitsOwned + transaction.units,
   totalCost: prev.totalCost + transaction.unitPrice * transaction.units + transaction.fees,
   gain: 0,
@@ -45,7 +55,7 @@ const applyDrip = applyBuy;
 // transfers establish or remove cost base.
 const applyTrfIn = applyBuy;
 
-const applyTrfOut: TransactionReducer = (prev, transaction) => {
+const applyTrfOut: ComponentsTransactionReducer = (prev, transaction) => {
   if (prev.unitsOwned <= 0) {
     throw new Error(
       `[${transaction.row}]: Cannot have a TRF_OUT transaction without owning any units.`,
@@ -73,7 +83,7 @@ const applyTrfOut: TransactionReducer = (prev, transaction) => {
   };
 };
 
-const applySell: TransactionReducer = (prev, transaction) => {
+const applySell: ComponentsTransactionReducer = (prev, transaction) => {
   if (prev.unitsOwned <= 0) {
     throw new Error(
       `[${transaction.row}]: Cannot have a Sell transaction without owning any units.`,
@@ -96,13 +106,13 @@ const applySell: TransactionReducer = (prev, transaction) => {
   };
 };
 
-const applyStakeReward: TransactionReducer = (prev, transaction) => ({
+const applyStakeReward: ComponentsTransactionReducer = (prev, transaction) => ({
   unitsOwned: prev.unitsOwned + transaction.units,
   totalCost: prev.totalCost,
   gain: 0,
 });
 
-const applyNcdis: TransactionReducer = (prev, transaction) => {
+const applyNcdis: BaseTransactionReducer = (prev, transaction) => {
   if (transaction.netTransactionValue < 0) {
     throw new Error(
       `[${transaction.row}]: Non-cash distributions should have a positive nominal net transaction value.`,
@@ -116,7 +126,7 @@ const applyNcdis: TransactionReducer = (prev, transaction) => {
   };
 };
 
-const applyRoc: TransactionReducer = (prev, transaction) => {
+const applyRoc: BaseTransactionReducer = (prev, transaction) => {
   if (transaction.netTransactionValue < 0) {
     throw new Error(
       `[${transaction.row}]: Returns of capital should have a positive nominal net transaction value`,
@@ -130,13 +140,24 @@ const applyRoc: TransactionReducer = (prev, transaction) => {
   };
 };
 
-const REDUCERS: Record<TransactionType, TransactionReducer> = {
+type TransactionTypesRequiringComponentsWhenReducing = Exclude<
+  TransactionType,
+  NetValueOnlyTransactionType
+>;
+
+const COMPONENT_TRANSACTION_REDUCERS: Record<
+  TransactionTypesRequiringComponentsWhenReducing,
+  ComponentsTransactionReducer
+> = {
   [TRANSACTION_TYPE_TRF_IN]: applyTrfIn,
   [TRANSACTION_TYPE_BUY]: applyBuy,
   [TRANSACTION_TYPE_DRIP]: applyDrip,
   [TRANSACTION_TYPE_TRF_OUT]: applyTrfOut,
   [TRANSACTION_TYPE_SELL]: applySell,
   [TRANSACTION_TYPE_STAKE_REWARD]: applyStakeReward,
+};
+
+const BASE_TRANSACTION_REDUCERS: Record<NetValueOnlyTransactionType, BaseTransactionReducer> = {
   [TRANSACTION_TYPE_NON_CASH_DIST]: applyNcdis,
   [TRANSACTION_TYPE_RETURN_OF_CAPITAL]: applyRoc,
 };
@@ -156,7 +177,11 @@ export function calculateAggregates(transactions: readonly TransactionRecord[]):
         totalCost: 0,
       };
 
-      const effect = REDUCERS[transaction.type](prev, transaction);
+      const reducer: BaseTransactionReducer =
+        BASE_TRANSACTION_REDUCERS[transaction.type] ??
+        COMPONENT_TRANSACTION_REDUCERS[transaction.type];
+
+      const effect = reducer(prev, transaction);
 
       return {
         aggregates: {

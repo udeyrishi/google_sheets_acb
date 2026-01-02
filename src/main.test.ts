@@ -4,7 +4,7 @@ describe('ACB calculations', () => {
   it('calculates ACB per unit for a single buy', () => {
     const data = [
       ['Date', 'Ticker', 'Type', 'Account', 'Units', 'Unit Price', 'Fees', 'Net Transaction Value'],
-      [new Date('2024-01-01'), 'ABC', 'BUY', 'Taxable', 10, 2, 1, 0],
+      [new Date('2024-01-01'), 'ABC', 'BUY', 'Taxable', 10, 2, 1, -21],
     ];
 
     expect(UNITS_OWNED('ABC', null, data)).toBe(10);
