@@ -4,10 +4,10 @@ import type { SheetRow, SheetTable } from './g_sheet_types';
 import { Shares } from './shares';
 
 /**
- * Calculates the ACB per unit.
- * @param {ticker} The ticker whose ACB per unit needs to be calculated.
- * @param {data} The transaction dataset.
- * @return The ACB per unit for the specified ticker given the data
+ * Calculates the ACB per unit for a ticker.
+ * @param {string} ticker The ticker symbol to report (e.g., "TSE:VEQT").
+ * @param {SheetTable} data Transaction table including a header row.
+ * @return {number} ACB per unit for the specified ticker.
  * @customfunction
  */
 export function ACB_UNIT(ticker: string, data: SheetTable): number {
@@ -26,10 +26,10 @@ export function ACB_UNIT(ticker: string, data: SheetTable): number {
 }
 
 /**
- * Calculates the total units owned of the specified ticker at the end of the transaction dataset.
- * @param {ticker} The ticker whose count needs to be calculated.
- * @param {data} The transaction dataset.
- * @return The total units owned for the ticker
+ * Calculates the total units owned for a ticker at the end of the dataset.
+ * @param {string} ticker The ticker symbol to report (e.g., "TSE:VEQT").
+ * @param {SheetTable} data Transaction table including a header row.
+ * @return {number} Total units owned for the ticker.
  * @customfunction
  */
 export function UNITS_OWNED(ticker: string, data: SheetTable): number {
@@ -46,7 +46,10 @@ export function UNITS_OWNED(ticker: string, data: SheetTable): number {
 }
 
 /**
- * Calculates the full current report for all assets in the dataset
+ * Generates a report of all tickers with units owned.
+ * @param {SheetTable} data Transaction table including a header row.
+ * @return {SheetTable} Rows of [Ticker, Units Owned, ACB, ACB Per Unit].
+ * @customfunction
  */
 export function ASSET_REPORT(data: SheetTable): SheetTable {
   const filledData = data.filter((row: SheetRow) => row.findIndex((col) => Boolean(col)) >= 0);
@@ -87,7 +90,13 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
   return [titleColumn, ...aggregatedTable];
 }
 
-export function TRANSACTION_EFFECTS(data: SheetTable) {
+/**
+ * Generates per-transaction effects with global ACB values.
+ * @param {SheetTable} data Transaction table including a header row.
+ * @return {SheetTable} Rows of [ACB, ACB Per Unit, Total Units Owned, Gain].
+ * @customfunction
+ */
+export function TRANSACTION_EFFECTS(data: SheetTable): SheetTable {
   const filledData = data.filter((row) => row.findIndex((col) => Boolean(col)) >= 0);
 
   const columnIndices = calculateColumnIndices(filledData[0]);
