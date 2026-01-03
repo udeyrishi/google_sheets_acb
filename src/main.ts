@@ -103,7 +103,7 @@ export function TRANSACTION_EFFECTS(data: SheetTable) {
       totalCost.valueOf(),
       unitsOwned.gt(Shares.zero()) ? totalCost.divide(unitsOwned.valueOf()).valueOf() : 0,
       unitsOwned.valueOf(),
-      gain.valueOf(),
+      gain?.valueOf(),
     ];
   });
 

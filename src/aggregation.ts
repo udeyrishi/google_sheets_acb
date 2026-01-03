@@ -26,7 +26,7 @@ export type PositionSnapshot = {
 export type PortfolioPositions = Record<Ticker, PositionSnapshot>;
 
 export type PostTradeSnapshot = PositionSnapshot & {
-  gain: Money;
+  gain?: Money;
 };
 
 export type AggregateResult = {
@@ -55,7 +55,6 @@ const applyBuy: ComponentsTransactionReducer = (prev, transaction) => {
     unitsOwned: prev.unitsOwned.add(transaction.units),
     // NTV is signed negative for buys, but we're tracking totalCost as the absolute value.
     totalCost: prev.totalCost.add(transaction.netTransactionValue.multiply(-1)),
-    gain: Money.zero(),
   };
 };
 
@@ -73,7 +72,6 @@ const applyTrfIn: ComponentsTransactionReducer = (prev, transaction) => {
     unitsOwned: prev.unitsOwned.add(transaction.units),
     // NTV is signed positive for TRF_INS (unlike buys)
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
-    gain: Money.zero(),
   };
 };
 
@@ -105,7 +103,6 @@ const applyTrfOut: ComponentsTransactionReducer = (prev, transaction) => {
   return {
     unitsOwned: prev.unitsOwned.subtract(transaction.units),
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
-    gain: Money.zero(),
   };
 };
 
@@ -141,7 +138,6 @@ const applySell: ComponentsTransactionReducer = (prev, transaction) => {
 const applyStakeReward: ComponentsTransactionReducer = (prev, transaction) => ({
   unitsOwned: prev.unitsOwned.add(transaction.units),
   totalCost: prev.totalCost,
-  gain: Money.zero(),
 });
 
 const applyNcdis: BaseTransactionReducer = (prev, transaction) => {
@@ -154,7 +150,6 @@ const applyNcdis: BaseTransactionReducer = (prev, transaction) => {
   return {
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
     unitsOwned: prev.unitsOwned,
-    gain: Money.zero(),
   };
 };
 
@@ -166,7 +161,6 @@ const applyRoc: BaseTransactionReducer = (prev, transaction) => {
   return {
     totalCost: prev.totalCost.subtract(transaction.netTransactionValue),
     unitsOwned: prev.unitsOwned,
-    gain: Money.zero(),
   };
 };
 

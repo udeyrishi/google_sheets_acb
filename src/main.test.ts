@@ -7,7 +7,7 @@ describe('ACB calculations', () => {
       [new Date('2024-01-01'), 'ABC', 'BUY', 'Taxable', 10, 2, 1, -21],
     ];
 
-    expect(UNITS_OWNED('ABC', null, data)).toBe(10);
+    expect(UNITS_OWNED('ABC', data)).toBe(10);
     expect(ACB_UNIT('ABC', data)).toBeCloseTo(2.1, 6);
   });
 });
@@ -24,8 +24,8 @@ describe('Transaction effects and reports', () => {
     const effects = TRANSACTION_EFFECTS(data);
 
     expect(effects[0]).toEqual(['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain']);
-    expect(effects[1]).toEqual([100, 10, 10, 0]);
-    expect(effects[2]).toEqual([220, 11, 20, 0]);
+    expect(effects[1]).toEqual([100, 10, 10, undefined]);
+    expect(effects[2]).toEqual([220, 11, 20, undefined]);
     expect(effects[3]).toEqual([165, 11, 15, 20]);
   });
 
@@ -39,7 +39,7 @@ describe('Transaction effects and reports', () => {
     const effects = TRANSACTION_EFFECTS(fullSellData);
 
     expect(effects[0]).toEqual(['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain']);
-    expect(effects[1]).toEqual([100, 10, 10, 0]);
+    expect(effects[1]).toEqual([100, 10, 10, undefined]);
     expect(effects[2]).toEqual([0, 0, 0, 20]);
   });
 
