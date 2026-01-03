@@ -2,9 +2,10 @@
 
 ## Project Context
 
-This repo primarily serves as a backup for a Google Sheets Apps Script project used to calculate ACBs across transactions.
-The data includes multiple non-registered accounts across brokers, including full and partial account transfers for bonuses, which is why the logic is account-aware.
-The goal is to make the project more robust with tests and documentation while preserving the ability to paste code into the online `.gs` files for deployment.
+This repo contains a Google Sheets Apps Script project used to calculate ACBs across transactions.
+The data includes multiple non-registered accounts across brokers.
+The goal is to make the project robust with tests and documentation while preserving the ability to paste code into the online `.gs` files for deployment.
+The calculations are CRA-oriented (cross-account ACB transactions, and high-precision accounting).
 
 ## Project Structure & Module Organization
 
@@ -12,8 +13,10 @@ This repository contains a small Google Apps Script codebase for a Google Sheets
 
 - `src/main.ts`: public spreadsheet functions (e.g., `ACB_UNIT`, `UNITS_OWNED`, `ASSET_REPORT`). Exports from this file are exposed as GAS custom functions.
 - `src/aggregation.ts`: aggregation and reducer logic for transaction effects.
-- `src/constants.ts`: shared transaction type constants and lists.
+- `src/transaction_record.ts`: transaction types, record models, and shared constants.
 - `src/parser.ts`: column parsing, transaction typing, and validation helpers.
+- `src/money.ts` and `src/shares.ts`: money and units value types with precision-aware math.
+- `src/precision_value.ts`: shared rounding/comparison base for Money and Shares.
 - `src/*.test.ts`: Jest tests colocated next to the source files they cover.
 
 ## Code Organization Preference
@@ -44,7 +47,7 @@ This repository contains a small Google Apps Script codebase for a Google Sheets
 
 ## Coding Style & Naming Conventions
 
-- Indentation: follow the existing file style (current files mix 2- and 4-space indents).
+- Indentation: 2 spaces (Prettier enforced).
 - Public custom functions are uppercase with underscores (e.g., `ASSET_REPORT`).
 - Internal helpers use lower camelCase (e.g., `calculateAggregates`).
 - Constants use `UPPER_SNAKE_CASE` (e.g., `TRANSACTION_TYPE_SELL`, `COL_DATE`).
@@ -57,15 +60,6 @@ This repository contains a small Google Apps Script codebase for a Google Sheets
 - When adding new transaction types, verify ordering, ACB changes, and error messages.
 - Optionally validate changes by running custom functions in a Google Sheet.
 
-## Commit & Pull Request Guidelines
-
-Existing commits are short, descriptive sentences (e.g., “backup”, “remove fees for sale ACB”).
-
-- Keep commit messages concise and action-oriented.
-- PRs should include a brief description, example sheet inputs/outputs, and any behavior changes.
-- Link related issues if they exist; screenshots are optional but helpful for sheet outputs.
-
 ## Security & Configuration Tips
 
 - Do not commit sheet data or personally identifiable information.
-- Validate column headers exactly match expected names (see `src/parser.ts`).
