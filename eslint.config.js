@@ -38,7 +38,7 @@ export default [
     },
   },
   {
-    files: ['**/*.test.ts', '**/*.test.js'],
+    files: ['**/*.test.ts', '**/*.test.js', '**/jest.setup.ts', '**/jest.d.ts'],
     plugins: {
       jest: jestPlugin,
     },

@@ -19,7 +19,9 @@ export function ACB_UNIT(ticker: string, data: SheetTable): number {
   const { aggregates } = calculateAggregates(transactions);
   const aggregated = aggregates[ticker];
 
-  return aggregated.unitsOwned > 0 ? aggregated.totalCost / aggregated.unitsOwned : 0;
+  return aggregated.unitsOwned > 0
+    ? aggregated.totalCost.divide(aggregated.unitsOwned).valueOf()
+    : 0;
 }
 
 /**
@@ -65,7 +67,7 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
   const aggregatedTable = [...Object.entries(calculateAggregates(transactions).aggregates)]
     .filter(([_ticker, aggregated]) => aggregated.unitsOwned > 0)
     .map(([ticker, aggregated]) => {
-      const acbPerUnit = aggregated.totalCost / aggregated.unitsOwned;
+      const acbPerUnit = aggregated.totalCost.divide(aggregated.unitsOwned);
       return [
         ticker,
         {
@@ -85,7 +87,7 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
     })
     .map(
       ([ticker, { unitsOwned, totalCost, acbPerUnit }]) =>
-        [ticker, unitsOwned, totalCost, acbPerUnit] as const,
+        [ticker, unitsOwned, totalCost.valueOf(), acbPerUnit.valueOf()] as const,
     );
 
   const titleColumn = ['Ticker', 'Units Owned', 'ACB', 'ACB Per Unit'];
@@ -104,7 +106,12 @@ export function TRANSACTION_EFFECTS(data: SheetTable) {
   const { effects } = calculateAggregates(transactions);
   const titleColumn = ['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain'];
   const formattedTable = effects.map(({ unitsOwned, totalCost, gain }) => {
-    return [totalCost, unitsOwned > 0 ? totalCost / unitsOwned : 0, unitsOwned, gain];
+    return [
+      totalCost.valueOf(),
+      unitsOwned > 0 ? totalCost.divide(unitsOwned).valueOf() : 0,
+      unitsOwned,
+      gain.valueOf(),
+    ];
   });
 
   return [titleColumn, ...formattedTable];

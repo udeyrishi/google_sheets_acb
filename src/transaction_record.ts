@@ -1,4 +1,4 @@
-export type Money = number;
+import type { Money } from './money';
 
 export type Ticker = string;
 

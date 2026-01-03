@@ -1,5 +1,6 @@
 import type { SheetRow, SheetScalar } from './g_sheet_types';
-import type { Ticker, Money } from './transaction_record';
+import type { Ticker } from './transaction_record';
+import { Money } from './money';
 import {
   type TransactionRecord,
   type TransactionRecordNetOnly,
@@ -40,8 +41,6 @@ const ALL_KNOWN_COL_TITLES = [
 type ColTitle = (typeof ALL_KNOWN_COL_TITLES)[number];
 
 export type ColumnIndices = Record<ColTitle, number>;
-
-const NET_VALUE_TOLERANCE = 0.001;
 
 const CASH_FLOW_DIRECTIONS: Record<TransactionType, 1 | -1> = {
   [TRANSACTION_TYPE_TRF_IN]: 1,
@@ -111,6 +110,25 @@ function parseNumberValue(value: SheetScalar, label: string): number {
   throw new Error(`${label} must be a finite number, received: ${value}`);
 }
 
+function parseMoneyValue(value: SheetScalar, label: string): Money {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Money(value);
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.replace(/\$/g, '').replace(/,/g, '').trim();
+    if (!normalized) {
+      throw new Error(`${label} must be a number, received: ${value}`);
+    }
+    const parsed = Number(normalized);
+    if (Number.isFinite(parsed)) {
+      return new Money(parsed);
+    }
+  }
+
+  throw new Error(`${label} must be a finite number, received: ${value}`);
+}
+
 function isBlankCell(value: SheetScalar): boolean {
   return value === null || (typeof value === 'string' && value.trim() === '');
 }
@@ -121,6 +139,14 @@ function parseOptionalNumberValue(value: SheetScalar, label: string): number | u
   }
 
   return parseNumberValue(value, label);
+}
+
+function parseOptionalMoneyValue(value: SheetScalar, label: string): Money | undefined {
+  if (isBlankCell(value)) {
+    return undefined;
+  }
+
+  return parseMoneyValue(value, label);
 }
 
 function calculateNTV({
@@ -135,7 +161,8 @@ function calculateNTV({
   fees: Money | undefined;
 }): Money {
   const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
-  return cashFlowDirection * units * unitPrice - (fees ?? 0);
+  const feeValue = fees ?? Money.zero();
+  return unitPrice.multiply(units * cashFlowDirection).subtract(feeValue);
 }
 
 function calculateUnits({
@@ -150,7 +177,8 @@ function calculateUnits({
   fees: Money | undefined;
 }): number {
   const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
-  return (cashFlowDirection * (ntv + (fees ?? 0))) / unitPrice;
+  const feeValue = fees ?? Money.zero();
+  return ntv.add(feeValue).multiply(cashFlowDirection).divide(unitPrice);
 }
 
 function calculateUnitPrice({
@@ -165,11 +193,8 @@ function calculateUnitPrice({
   fees: Money | undefined;
 }): Money {
   const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
-  return (cashFlowDirection * (ntv + (fees ?? 0))) / units;
-}
-
-function isWithinTolerance(actual: number, expected: number): boolean {
-  return Math.abs(actual - expected) <= NET_VALUE_TOLERANCE;
+  const feeValue = fees ?? Money.zero();
+  return ntv.add(feeValue).multiply(cashFlowDirection).divide(units);
 }
 
 function isNetValueOnlyTransactionType(type: TransactionType): type is NetValueOnlyTransactionType {
@@ -189,12 +214,12 @@ export function parseTransactionRecord(
       row[columnIndices[COL_UNITS]],
       'Units',
     );
-    const providedUnitPrice: Money | undefined = parseOptionalNumberValue(
+    const providedUnitPrice: Money | undefined = parseOptionalMoneyValue(
       row[columnIndices[COL_UNIT_PRICE]],
       'Unit price',
     );
-    const fees: Money | undefined = parseOptionalNumberValue(row[columnIndices[COL_FEES]], 'Fees');
-    const providedNTV: Money | undefined = parseOptionalNumberValue(
+    const fees: Money | undefined = parseOptionalMoneyValue(row[columnIndices[COL_FEES]], 'Fees');
+    const providedNTV: Money | undefined = parseOptionalMoneyValue(
       row[columnIndices[COL_NET_TRANSACTION_VALUE]],
       'Net transaction value',
     );
@@ -215,7 +240,7 @@ export function parseTransactionRecord(
         fees,
       });
 
-      if (providedNTV !== undefined && !isWithinTolerance(providedNTV, expectedNTV)) {
+      if (providedNTV !== undefined && providedNTV.notEquals(expectedNTV)) {
         throw new Error(
           `Provided net transaction value ${providedNTV} did not match expected ${expectedNTV}.`,
         );
