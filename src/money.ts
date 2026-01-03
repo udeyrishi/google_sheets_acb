@@ -1,5 +1,3 @@
-const MONEY_PRECISION = 3;
-
 export class Money {
   private readonly value: number;
 
@@ -15,20 +13,29 @@ export class Money {
     return new Money(0);
   }
 
-  static fromNumber(value: number): Money {
-    return new Money(value);
-  }
-
   valueOf(): number {
     return this.value;
   }
 
-  toString(): string {
-    return `Money[${this.value.toFixed(MONEY_PRECISION)}]`;
+  toNearestCent(): number {
+    const cents = this.value * 100;
+    const centsFloored = Math.floor(cents);
+
+    const change = cents - centsFloored;
+
+    if (change >= 0.5) {
+      return (centsFloored + 1) / 100;
+    } else {
+      return centsFloored / 100;
+    }
   }
 
-  toJSON(): string {
-    return this.toString();
+  toString(): string {
+    return `${this.toNearestCent().toPrecision(4)}`;
+  }
+
+  toJSON(): number {
+    return this.toNearestCent();
   }
 
   add(other: Money): Money {
@@ -47,7 +54,10 @@ export class Money {
   divide(money: Money): number;
 
   divide(divisor: number | Money): Money | number {
-    if ((typeof divisor === 'number' && divisor === 0) || divisor.valueOf() === 0) {
+    if (
+      (typeof divisor === 'number' && divisor === 0) ||
+      (divisor instanceof Money && divisor.value === 0)
+    ) {
       throw new Error('Cannot divide money by zero.');
     }
 
@@ -59,8 +69,7 @@ export class Money {
   }
 
   equals(other: Money): boolean {
-    const epsilon = Math.pow(10, -MONEY_PRECISION);
-    return Math.abs(this.value - other.value) < epsilon;
+    return this.toNearestCent() === other.toNearestCent();
   }
 
   notEquals(other: Money): boolean {
