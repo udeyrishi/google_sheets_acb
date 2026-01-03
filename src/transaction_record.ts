@@ -1,4 +1,5 @@
 import type { Money } from './money';
+import type { Shares } from './shares';
 
 export type Ticker = string;
 
@@ -61,7 +62,7 @@ export type TransactionRecordNetOnly = TransactionRecordBase & {
 
 export type TransactionRecordWithComponents = TransactionRecordBase & {
   valueMode: 'components';
-  units: number;
+  units: Shares;
   unitPrice: Money;
   type: TransactionType;
 };

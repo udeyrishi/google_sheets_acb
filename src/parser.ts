@@ -1,6 +1,7 @@
 import type { SheetRow, SheetScalar } from './g_sheet_types';
 import type { Ticker } from './transaction_record';
 import { Money } from './money';
+import { Shares } from './shares';
 import {
   type TransactionRecord,
   type TransactionRecordNetOnly,
@@ -90,9 +91,9 @@ function parseStringValue(value: SheetScalar, label: string): string {
   return trimmed;
 }
 
-function parseNumberValue(value: SheetScalar, label: string): number {
+function parseSharesValue(value: SheetScalar, label: string): Shares {
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
+    return new Shares(value);
   }
 
   if (typeof value === 'string') {
@@ -103,7 +104,7 @@ function parseNumberValue(value: SheetScalar, label: string): number {
     const normalized = trimmed.replace(/,/g, '');
     const parsed = Number(normalized);
     if (Number.isFinite(parsed)) {
-      return parsed;
+      return new Shares(parsed);
     }
   }
 
@@ -133,12 +134,12 @@ function isBlankCell(value: SheetScalar): boolean {
   return value === null || (typeof value === 'string' && value.trim() === '');
 }
 
-function parseOptionalNumberValue(value: SheetScalar, label: string): number | undefined {
+function parseOptionalSharesValue(value: SheetScalar, label: string): Shares | undefined {
   if (isBlankCell(value)) {
     return undefined;
   }
 
-  return parseNumberValue(value, label);
+  return parseSharesValue(value, label);
 }
 
 function parseOptionalMoneyValue(value: SheetScalar, label: string): Money | undefined {
@@ -156,13 +157,13 @@ function calculateNTV({
   fees,
 }: {
   transactionType: TransactionType;
-  units: number;
+  units: Shares;
   unitPrice: Money;
   fees: Money | undefined;
 }): Money {
   const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
   const feeValue = fees ?? Money.zero();
-  return unitPrice.multiply(units * cashFlowDirection).subtract(feeValue);
+  return unitPrice.multiply(units.valueOf() * cashFlowDirection).subtract(feeValue);
 }
 
 function calculateUnits({
@@ -175,10 +176,11 @@ function calculateUnits({
   ntv: Money;
   unitPrice: Money;
   fees: Money | undefined;
-}): number {
+}): Shares {
   const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
   const feeValue = fees ?? Money.zero();
-  return ntv.add(feeValue).multiply(cashFlowDirection).divide(unitPrice);
+  const numerator = ntv.add(feeValue).multiply(cashFlowDirection);
+  return new Shares(numerator.divide(unitPrice));
 }
 
 function calculateUnitPrice({
@@ -189,12 +191,12 @@ function calculateUnitPrice({
 }: {
   transactionType: TransactionType;
   ntv: Money;
-  units: number;
+  units: Shares;
   fees: Money | undefined;
 }): Money {
   const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
   const feeValue = fees ?? Money.zero();
-  return ntv.add(feeValue).multiply(cashFlowDirection).divide(units);
+  return ntv.add(feeValue).multiply(cashFlowDirection).divide(units.valueOf());
 }
 
 function isNetValueOnlyTransactionType(type: TransactionType): type is NetValueOnlyTransactionType {
@@ -210,7 +212,7 @@ export function parseTransactionRecord(
     const type: TransactionType = parseTransactionType(row, columnIndices);
     const date: Date = parseDateValue(row[columnIndices[COL_DATE]], 'Transaction date');
     const ticker: Ticker = parseStringValue(row[columnIndices[COL_TICKER]], 'Ticker');
-    const providedUnits: number | undefined = parseOptionalNumberValue(
+    const providedUnits: Shares | undefined = parseOptionalSharesValue(
       row[columnIndices[COL_UNITS]],
       'Units',
     );

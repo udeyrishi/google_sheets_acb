@@ -1,6 +1,7 @@
 import type { TransactionRecord } from './transaction_record';
 import { parseTransactionRecord, calculateColumnIndices } from './parser';
 import { Money } from './money';
+import { Shares } from './shares';
 
 describe('Parser helpers', () => {
   it('maps column indices for normalized headers', () => {
@@ -69,7 +70,7 @@ describe('Parser helpers', () => {
       date: new Date('2021-05-20'),
       ticker: 'TSE:SHOP',
       type: 'BUY',
-      units: 10,
+      units: new Shares(10),
       unitPrice: new Money(151.07),
       fees: Money.zero(),
       netTransactionValue: new Money(-1510.7),
@@ -113,10 +114,10 @@ describe('Parser helpers', () => {
     );
 
     expect(record.valueMode).toBe<TransactionRecord['valueMode']>('components');
-    expect(record.units).toBeCloseTo(1234.5, 6);
-    expect(record.unitPrice).toStrictEqual(new Money(1000));
-    expect(record.fees).toStrictEqual(new Money(0.25));
-    expect(record.netTransactionValue).toStrictEqual(new Money(-1234500.25));
+    expect(record.units).toEqual(new Shares(1234.5));
+    expect(record.unitPrice).toEqual(new Money(1000));
+    expect(record.fees).toEqual(new Money(0.25));
+    expect(record.netTransactionValue).toEqual(new Money(-1234500.25));
   });
 
   it('accepts dollar sign prefixes and suffixes for money values', () => {
@@ -138,9 +139,9 @@ describe('Parser helpers', () => {
     );
 
     expect(record.valueMode).toBe<TransactionRecord['valueMode']>('components');
-    expect(record.unitPrice).toStrictEqual(new Money(10));
-    expect(record.fees).toStrictEqual(new Money(1));
-    expect(record.netTransactionValue).toStrictEqual(new Money(-21));
+    expect(record.unitPrice).toEqual(new Money(10));
+    expect(record.fees).toEqual(new Money(1));
+    expect(record.netTransactionValue).toEqual(new Money(-21));
   });
 
   it('rejects invalid dates', () => {
@@ -350,7 +351,7 @@ describe('Parser helpers', () => {
       indices,
     );
 
-    expect(record.netTransactionValue).toStrictEqual(new Money(-101));
+    expect(record.netTransactionValue).toEqual(new Money(-101));
     expect(record.valueMode).toBe('components');
   });
 
@@ -394,7 +395,7 @@ describe('Parser helpers', () => {
     );
 
     expect(record.valueMode).toBe<TransactionRecord['valueMode']>('components');
-    expect(record.unitPrice).toStrictEqual(new Money(10));
+    expect(record.unitPrice).toEqual(new Money(10));
   });
 
   it('computes units when unit price + NTV are provided', () => {
@@ -416,7 +417,7 @@ describe('Parser helpers', () => {
     );
 
     expect(record.valueMode).toBe('components');
-    expect(record.units).toBeCloseTo(10, 6);
+    expect(record.units).toEqual(new Shares(10));
   });
 
   it('accepts net-only transactions for ROC and NCDIS', () => {
@@ -438,7 +439,7 @@ describe('Parser helpers', () => {
     );
 
     expect(record.valueMode).toBe('netOnly');
-    expect(record.netTransactionValue).toStrictEqual(new Money(12.5));
+    expect(record.netTransactionValue).toEqual(new Money(12.5));
   });
 
   it('allows ROC/NCDIS to carry components and computes NTV', () => {
@@ -460,7 +461,7 @@ describe('Parser helpers', () => {
     );
 
     expect(record.valueMode).toBe('components');
-    expect(record.netTransactionValue).toStrictEqual(new Money(6));
+    expect(record.netTransactionValue).toEqual(new Money(6));
   });
 
   it('rejects net-only transactions for non-ROC/NCDIS types', () => {
@@ -504,7 +505,7 @@ describe('Parser helpers', () => {
 
     expect(record.valueMode).toBe('components');
     expect(record.fees).toBeUndefined();
-    expect(record.netTransactionValue).toStrictEqual(new Money(-100));
+    expect(record.netTransactionValue).toEqual(new Money(-100));
   });
 
   it('rejects rows missing net transaction value and both components', () => {

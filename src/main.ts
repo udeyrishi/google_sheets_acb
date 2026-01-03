@@ -1,6 +1,7 @@
 import { calculateColumnIndices, parseTransactionRecord } from './parser';
 import { calculateAggregates } from './aggregation';
 import type { SheetRow, SheetTable } from './g_sheet_types';
+import { Shares } from './shares';
 
 /**
  * Calculates the ACB per unit.
@@ -19,8 +20,8 @@ export function ACB_UNIT(ticker: string, data: SheetTable): number {
   const { aggregates } = calculateAggregates(transactions);
   const aggregated = aggregates[ticker];
 
-  return aggregated.unitsOwned > 0
-    ? aggregated.totalCost.divide(aggregated.unitsOwned).valueOf()
+  return aggregated.unitsOwned.gt(Shares.zero())
+    ? aggregated.totalCost.divide(aggregated.unitsOwned.valueOf()).valueOf()
     : 0;
 }
 
@@ -49,7 +50,7 @@ export function UNITS_OWNED(
   const { aggregates } = calculateAggregates(transactions);
   const aggregated = aggregates[ticker];
 
-  return aggregated.unitsOwned;
+  return aggregated.unitsOwned.valueOf();
 }
 
 /**
@@ -65,9 +66,9 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
     .map((row: SheetRow, i: number) => parseTransactionRecord(i + 2, row, columnIndices));
 
   const aggregatedTable = [...Object.entries(calculateAggregates(transactions).aggregates)]
-    .filter(([_ticker, aggregated]) => aggregated.unitsOwned > 0)
+    .filter(([_ticker, aggregated]) => aggregated.unitsOwned.gt(Shares.zero()))
     .map(([ticker, aggregated]) => {
-      const acbPerUnit = aggregated.totalCost.divide(aggregated.unitsOwned);
+      const acbPerUnit = aggregated.totalCost.divide(aggregated.unitsOwned.valueOf());
       return [
         ticker,
         {
@@ -87,7 +88,7 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
     })
     .map(
       ([ticker, { unitsOwned, totalCost, acbPerUnit }]) =>
-        [ticker, unitsOwned, totalCost.valueOf(), acbPerUnit.valueOf()] as const,
+        [ticker, unitsOwned.valueOf(), totalCost.valueOf(), acbPerUnit.valueOf()] as const,
     );
 
   const titleColumn = ['Ticker', 'Units Owned', 'ACB', 'ACB Per Unit'];
@@ -108,8 +109,8 @@ export function TRANSACTION_EFFECTS(data: SheetTable) {
   const formattedTable = effects.map(({ unitsOwned, totalCost, gain }) => {
     return [
       totalCost.valueOf(),
-      unitsOwned > 0 ? totalCost.divide(unitsOwned).valueOf() : 0,
-      unitsOwned,
+      unitsOwned.gt(Shares.zero()) ? totalCost.divide(unitsOwned.valueOf()).valueOf() : 0,
+      unitsOwned.valueOf(),
       gain.valueOf(),
     ];
   });

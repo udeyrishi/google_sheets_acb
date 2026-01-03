@@ -50,7 +50,7 @@ describe('Money', () => {
     expect(sum).toEqual(new Money(7.7778));
     expect(sum).toEqual(new Money(7.78));
     expect(sum).not.toEqual(new Money(7.77));
-    expect(sum.toNearestCent()).toEqual(7.78);
+    expect(sum.roundToPrecision()).toEqual(7.78);
   });
 
   it('multiplies and divides by scalars', () => {
@@ -80,10 +80,10 @@ describe('Money', () => {
     const higher = new Money(10.01);
     const lower = new Money(9.99);
 
-    expect(base.lessThan(higher)).toBe(true);
-    expect(base.greaterThan(lower)).toBe(true);
-    expect(base.lessThan(new Money(10.0015))).toBe(false);
-    expect(base.greaterThan(new Money(10.0015))).toBe(false);
+    expect(base.lt(higher)).toBe(true);
+    expect(base.gt(lower)).toBe(true);
+    expect(base.lt(new Money(10.0015))).toBe(false);
+    expect(base.gt(new Money(10.0015))).toBe(false);
     expect(base.equals(new Money(10.0015))).toBe(true);
   });
 
@@ -106,10 +106,10 @@ describe('Money', () => {
   });
 
   it('rounds to the nearest cent', () => {
-    expect(new Money(10.001).toNearestCent()).toEqual(10.0);
-    expect(new Money(10.004).toNearestCent()).toEqual(10.0);
-    expect(new Money(10.0049).toNearestCent()).toEqual(10.0);
-    expect(new Money(10.005).toNearestCent()).toEqual(10.01);
-    expect(new Money(12.3456).toNearestCent()).toBe(12.35);
+    expect(new Money(10.001).roundToPrecision()).toEqual(10.0);
+    expect(new Money(10.004).roundToPrecision()).toEqual(10.0);
+    expect(new Money(10.0049).roundToPrecision()).toEqual(10.0);
+    expect(new Money(10.005).roundToPrecision()).toEqual(10.01);
+    expect(new Money(12.3456).roundToPrecision()).toBe(12.35);
   });
 });

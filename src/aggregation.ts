@@ -1,4 +1,5 @@
 import { Money } from './money';
+import { Shares } from './shares';
 import {
   TRANSACTION_TYPE_TRF_IN,
   TRANSACTION_TYPE_BUY,
@@ -18,7 +19,7 @@ import {
 import { formatErrorCause } from './utils';
 
 export type PositionSnapshot = {
-  unitsOwned: number;
+  unitsOwned: Shares;
   totalCost: Money;
 };
 
@@ -44,14 +45,14 @@ type BaseTransactionReducer = (
 ) => PostTradeSnapshot;
 
 const applyBuy: ComponentsTransactionReducer = (prev, transaction) => {
-  if (transaction.netTransactionValue.greaterThan(Money.zero())) {
+  if (transaction.netTransactionValue.gt(Money.zero())) {
     throw new Error(
       `BUY transactions were expected to have a negative NTV conventionally to indicate a cash outflow.`,
     );
   }
 
   return {
-    unitsOwned: prev.unitsOwned + transaction.units,
+    unitsOwned: prev.unitsOwned.add(transaction.units),
     // NTV is signed negative for buys, but we're tracking totalCost as the absolute value.
     totalCost: prev.totalCost.add(transaction.netTransactionValue.multiply(-1)),
     gain: Money.zero(),
@@ -64,12 +65,12 @@ const applyDrip = applyBuy;
 // Treat TRF_IN/TRF_OUT as ACB changes, so paired transfers cancel but unpaired
 // transfers establish or remove cost base.
 const applyTrfIn: ComponentsTransactionReducer = (prev, transaction) => {
-  if (transaction.netTransactionValue.lessThan(Money.zero())) {
+  if (transaction.netTransactionValue.lt(Money.zero())) {
     throw new Error(`TRF_IN transactions were expected to have a positive NTV conventionally.`);
   }
 
   return {
-    unitsOwned: prev.unitsOwned + transaction.units,
+    unitsOwned: prev.unitsOwned.add(transaction.units),
     // NTV is signed positive for TRF_INS (unlike buys)
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
     gain: Money.zero(),
@@ -77,23 +78,23 @@ const applyTrfIn: ComponentsTransactionReducer = (prev, transaction) => {
 };
 
 const applyTrfOut: ComponentsTransactionReducer = (prev, transaction) => {
-  if (prev.unitsOwned <= 0) {
+  if (prev.unitsOwned.lte(Shares.zero())) {
     throw new Error(
       `[${transaction.row}]: Cannot have a TRF_OUT transaction without owning any units.`,
     );
   }
 
-  if (transaction.units > prev.unitsOwned) {
+  if (transaction.units.gt(prev.unitsOwned)) {
     throw new Error(
       `[${transaction.row}]: Cannot transfer out more units (${transaction.units}) than owned (${prev.unitsOwned}).`,
     );
   }
 
-  if (transaction.netTransactionValue.greaterThan(Money.zero())) {
+  if (transaction.netTransactionValue.gt(Money.zero())) {
     throw new Error(`TRF_OUT transactions were expected to have a negative NTV conventionally.`);
   }
 
-  const globalAcbPerUnitSoFar = prev.totalCost.divide(prev.unitsOwned);
+  const globalAcbPerUnitSoFar = prev.totalCost.divide(prev.unitsOwned.valueOf());
 
   if (globalAcbPerUnitSoFar.notEquals(transaction.unitPrice)) {
     throw new Error(
@@ -102,34 +103,34 @@ const applyTrfOut: ComponentsTransactionReducer = (prev, transaction) => {
   }
 
   return {
-    unitsOwned: prev.unitsOwned - transaction.units,
+    unitsOwned: prev.unitsOwned.subtract(transaction.units),
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
     gain: Money.zero(),
   };
 };
 
 const applySell: ComponentsTransactionReducer = (prev, transaction) => {
-  if (prev.unitsOwned <= 0) {
+  if (prev.unitsOwned.lte(Shares.zero())) {
     throw new Error(
       `[${transaction.row}]: Cannot have a Sell transaction without owning any units.`,
     );
   }
-  if (transaction.units > prev.unitsOwned) {
+  if (transaction.units.gt(prev.unitsOwned)) {
     throw new Error(`[${transaction.row}]: Cannot sell more units than owned.`);
   }
 
-  if (transaction.netTransactionValue.lessThan(Money.zero())) {
+  if (transaction.netTransactionValue.lt(Money.zero())) {
     throw new Error(
       `SELL transactions were expected to have a positive NTV conventionally, since it involves a cash inflow.`,
     );
   }
 
-  const globalAcbPerUnitSoFar = prev.totalCost.divide(prev.unitsOwned);
-  const costBase = globalAcbPerUnitSoFar.multiply(transaction.units);
+  const globalAcbPerUnitSoFar = prev.totalCost.divide(prev.unitsOwned.valueOf());
+  const costBase = globalAcbPerUnitSoFar.multiply(transaction.units.valueOf());
   const proceedsOfSale = transaction.netTransactionValue;
 
   return {
-    unitsOwned: prev.unitsOwned - transaction.units,
+    unitsOwned: prev.unitsOwned.subtract(transaction.units),
     // Note that transaction.fees does not get added to the ACB on sale. It only reduces the net gains.
     // Do not add transaction.fees here.
     totalCost: prev.totalCost.subtract(costBase),
@@ -138,13 +139,13 @@ const applySell: ComponentsTransactionReducer = (prev, transaction) => {
 };
 
 const applyStakeReward: ComponentsTransactionReducer = (prev, transaction) => ({
-  unitsOwned: prev.unitsOwned + transaction.units,
+  unitsOwned: prev.unitsOwned.add(transaction.units),
   totalCost: prev.totalCost,
   gain: Money.zero(),
 });
 
 const applyNcdis: BaseTransactionReducer = (prev, transaction) => {
-  if (transaction.netTransactionValue.lessThan(Money.zero())) {
+  if (transaction.netTransactionValue.lt(Money.zero())) {
     throw new Error(
       'Non-cash distributions should have a positive conventional net transaction value.',
     );
@@ -158,7 +159,7 @@ const applyNcdis: BaseTransactionReducer = (prev, transaction) => {
 };
 
 const applyRoc: BaseTransactionReducer = (prev, transaction) => {
-  if (transaction.netTransactionValue.lessThan(Money.zero())) {
+  if (transaction.netTransactionValue.lt(Money.zero())) {
     throw new Error('Returns of capital should have a positive conventional net transaction value');
   }
 
@@ -202,7 +203,7 @@ export function calculateAggregates(transactions: readonly TransactionRecord[]):
       }
 
       const prev = aggregates[transaction.ticker] ?? {
-        unitsOwned: 0,
+        unitsOwned: Shares.zero(),
         totalCost: Money.zero(),
       };
 
