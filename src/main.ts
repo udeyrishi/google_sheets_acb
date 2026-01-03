@@ -32,15 +32,7 @@ export function ACB_UNIT(ticker: string, data: SheetTable): number {
  * @return The total units owned for the ticker
  * @customfunction
  */
-export function UNITS_OWNED(
-  ticker: string,
-  _account: string | null | undefined,
-  data: SheetTable,
-): number {
-  if (_account) {
-    throw new Error('account param is no longer supported.');
-  }
-
+export function UNITS_OWNED(ticker: string, data: SheetTable): number {
   const columnIndices = calculateColumnIndices(data[0]);
 
   const transactions = data
