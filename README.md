@@ -1,22 +1,23 @@
-# g_sheet_finance_tracker
+# Google Sheets ACB
 
 ## Intro
 
 This project contains Google Apps Script code for adding custom functions to Google Sheets that can
-help with bookkeeping for non-registered account trades. These functions can help with tracking
-the adjusted cost base (ACB), total units owned, sale gains, and other useful information needed
-when filing your taxes.
+help with bookkeeping for non-registered account trades. Particularly, these functions can help with
+tracking the adjusted cost base (ACB), total units owned, sale gains, and other useful information
+needed when filing your taxes.
 
 ### Functions
 
 Once built and deployed, you will have access to these custom functions in your Google Sheet:
 
-- `=ACB_UNIT("TSE:VEQT", A1:H100)` -> Returns the ACB per unit for a ticker.
-- `=UNITS_OWNED("TSE:VEQT", A1:H100)` -> Returns the total units owned for a ticker.
+- `=ACB_UNIT("TSE:VEQT", A1:H100)` -> Returns the ACB per unit for the given ticker.
+- `=UNITS_OWNED("TSE:VEQT", A1:H100)` -> Returns the total units owned for the given ticker.
 - `=ASSET_REPORT(A1:H100)` -> Returns a table containing the final asset report for all tickers. This report
   shows the final ACB, ACB per unit, and units owned for all the tickers after applying all the transactions in the dataset.
-- `=TRANSACTION_EFFECTS(A1:H100)` -> Returns a table showcasing the effects of each transaction (ordered). Each effect includes the
-  resulting ACB, ACB per unit, updated total units owned, and gain/loss (if applicable). The output table has the same number of rows as the input data.
+- `=TRANSACTION_EFFECTS(A1:H100)` -> Returns a table containing the effects of each transaction (ordered). Each effect includes the
+  post-transaction ACB, ACB per unit, updated total units owned, and gain/loss (if applicable). The output table has the same number
+  of rows as the input data, matching the input 1:1.
 
 ### Expected sheet layout
 
@@ -40,13 +41,14 @@ Transaction rows can be:
 
 NTV sign conventions:
 
-- BUYs as negative, since it involves a cash outflow
-- SELLs as positive, since it involves a cash inflow
-- TRF_INs as positive, conventionally
-- TRF_OUTs as negative, conventionally
-- STK_RWD as positive, conventionally
-- DRIPs as negative, since it involves a cash outflow
-- NCDIS and ROCs as positive, conventionally
+- BUY as negative
+- SELL as positive
+- TRF_IN as positive
+- TRF_OUT as negative
+- STK_RWD as positive
+- DRIP as negative
+- NCDIS as positive
+- ROC as positive
 
 ## Build and Install
 
@@ -54,7 +56,7 @@ NTV sign conventions:
 
 ```
 git clone <repo-url>
-cd g_sheet_finance_tracker
+cd google_sheets_acb
 yarn install
 ```
 
