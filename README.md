@@ -63,6 +63,10 @@ cd google_sheets_acb
 yarn install
 ```
 
+> [!TIP]
+> You can skip local cloning/building by downloading the `Code.gs` release artifact
+> from the GitHub Releases page for the tag you want.
+
 2. Build the Apps Script bundle:
 
 ```
