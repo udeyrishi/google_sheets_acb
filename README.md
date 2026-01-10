@@ -19,6 +19,9 @@ Once built and deployed, you will have access to these custom functions in your 
   post-transaction ACB, ACB per unit, updated total units owned, and gain/loss (if applicable). The output table has the same number
   of rows as the input data, matching the input 1:1.
 
+<img src="./assets/asset_report.png"/>
+<img src="./assets/transaction_effects.png"/>
+
 ### Expected sheet layout
 
 The data range passed to all of the above functions must include a header row with these titles (order can vary; extra columns are ok; case-insensitive):
