@@ -1,5 +1,5 @@
 import { calculateAggregates } from './aggregation';
-import type { PostTradeSnapshot, PortfolioPositions, PositionSnapshot } from './aggregation';
+import type { PostTradeSnapshot, PortfolioPositions, PositionSnapshot } from './aggregation_types';
 import { Money } from './money';
 import { Shares } from './shares';
 import type {

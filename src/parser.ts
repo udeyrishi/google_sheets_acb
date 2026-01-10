@@ -4,21 +4,10 @@ import { Money } from './money';
 import { Shares } from './shares';
 import {
   type TransactionRecord,
-  type TransactionRecordNetOnly,
-  type TransactionRecordWithComponents,
   type TransactionType,
-  type NetValueOnlyTransactionType,
-  TRANSACTION_TYPE_BUY,
-  TRANSACTION_TYPE_DRIP,
-  TRANSACTION_TYPE_SELL,
-  TRANSACTION_TYPE_STAKE_REWARD,
-  TRANSACTION_TYPE_TRF_IN,
-  TRANSACTION_TYPE_TRF_OUT,
-  TRANSACTION_TYPE_NON_CASH_DIST,
-  TRANSACTION_TYPE_RETURN_OF_CAPITAL,
   ALL_KNOWN_TRANSACTION_TYPES,
-  NET_VALUE_ONLY_TRANSACTION_TYPES,
 } from './transaction_record';
+import { getTransactionSpec } from './transaction_specs';
 import { formatErrorCause } from './utils';
 
 const COL_DATE = 'Date';
@@ -42,17 +31,6 @@ const ALL_KNOWN_COL_TITLES = [
 type ColTitle = (typeof ALL_KNOWN_COL_TITLES)[number];
 
 export type ColumnIndices = Record<ColTitle, number>;
-
-const CASH_FLOW_DIRECTIONS: Record<TransactionType, 1 | -1> = {
-  [TRANSACTION_TYPE_TRF_IN]: 1,
-  [TRANSACTION_TYPE_SELL]: 1,
-  [TRANSACTION_TYPE_STAKE_REWARD]: 1,
-  [TRANSACTION_TYPE_BUY]: -1,
-  [TRANSACTION_TYPE_DRIP]: -1,
-  [TRANSACTION_TYPE_TRF_OUT]: -1,
-  [TRANSACTION_TYPE_RETURN_OF_CAPITAL]: 1,
-  [TRANSACTION_TYPE_NON_CASH_DIST]: 1,
-};
 
 function parseTransactionType(row: SheetRow, columnIndices: ColumnIndices): TransactionType {
   const rawTransactionType = row[columnIndices[COL_TYPE]];
@@ -150,59 +128,6 @@ function parseOptionalMoneyValue(value: SheetScalar, label: string): Money | und
   return parseMoneyValue(value, label);
 }
 
-function calculateNTV({
-  transactionType,
-  units,
-  unitPrice,
-  fees,
-}: {
-  transactionType: TransactionType;
-  units: Shares;
-  unitPrice: Money;
-  fees: Money | undefined;
-}): Money {
-  const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
-  const feeValue = fees ?? Money.zero();
-  return unitPrice.multiply(units.valueOf() * cashFlowDirection).subtract(feeValue);
-}
-
-function calculateUnits({
-  transactionType,
-  ntv,
-  unitPrice,
-  fees,
-}: {
-  transactionType: TransactionType;
-  ntv: Money;
-  unitPrice: Money;
-  fees: Money | undefined;
-}): Shares {
-  const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
-  const feeValue = fees ?? Money.zero();
-  const numerator = ntv.add(feeValue).multiply(cashFlowDirection);
-  return new Shares(numerator.divide(unitPrice));
-}
-
-function calculateUnitPrice({
-  transactionType,
-  ntv,
-  units,
-  fees,
-}: {
-  transactionType: TransactionType;
-  ntv: Money;
-  units: Shares;
-  fees: Money | undefined;
-}): Money {
-  const cashFlowDirection = CASH_FLOW_DIRECTIONS[transactionType];
-  const feeValue = fees ?? Money.zero();
-  return ntv.add(feeValue).multiply(cashFlowDirection).divide(units.valueOf());
-}
-
-function isNetValueOnlyTransactionType(type: TransactionType): type is NetValueOnlyTransactionType {
-  return (NET_VALUE_ONLY_TRANSACTION_TYPES as readonly TransactionType[]).includes(type);
-}
-
 export function parseTransactionRecord(
   rowNumber: number,
   row: SheetRow,
@@ -210,6 +135,7 @@ export function parseTransactionRecord(
 ): TransactionRecord {
   try {
     const type: TransactionType = parseTransactionType(row, columnIndices);
+    const spec = getTransactionSpec(type);
     const date: Date = parseDateValue(row[columnIndices[COL_DATE]], 'Transaction date');
     const ticker: Ticker = parseStringValue(row[columnIndices[COL_TICKER]], 'Ticker');
     const providedUnits: Shares | undefined = parseOptionalSharesValue(
@@ -226,105 +152,16 @@ export function parseTransactionRecord(
       'Net transaction value',
     );
 
-    const base = {
+    return spec.normalize({
       row: rowNumber,
       date,
       ticker,
-    };
-
-    if (providedUnits !== undefined && providedUnitPrice !== undefined) {
-      // Components are provided. NTV is either directly provided (which will be sanity checked)
-      // or can be derived.
-      const expectedNTV: Money = calculateNTV({
-        transactionType: type,
-        units: providedUnits,
-        unitPrice: providedUnitPrice,
-        fees,
-      });
-
-      if (providedNTV !== undefined && providedNTV.notEquals(expectedNTV)) {
-        throw new Error(
-          `Provided net transaction value ${providedNTV} did not match expected ${expectedNTV}.`,
-        );
-      }
-
-      return {
-        ...base,
-        netTransactionValue: providedNTV ?? expectedNTV,
-        valueMode: 'components',
-        units: providedUnits,
-        unitPrice: providedUnitPrice,
-        fees,
-        type,
-      } satisfies TransactionRecordWithComponents;
-    }
-
-    if (providedNTV !== undefined) {
-      if (providedUnitPrice !== undefined) {
-        // NTV + unitPrice are provided. units can be derived.
-        if (providedUnits !== undefined) {
-          throw new Error('Dev error: No units should have been available in this code branch.');
-        }
-        return {
-          ...base,
-          netTransactionValue: providedNTV,
-          valueMode: 'components',
-          units: calculateUnits({
-            transactionType: type,
-            unitPrice: providedUnitPrice,
-            fees,
-            ntv: providedNTV,
-          }),
-          unitPrice: providedUnitPrice,
-          fees,
-          type,
-        } satisfies TransactionRecordWithComponents;
-      }
-
-      if (providedUnits !== undefined) {
-        // NTV + units are provided. unitPrice can be derived.
-        if (providedUnitPrice !== undefined) {
-          throw new Error(
-            'Dev error: No unitPrice should have been available in this code branch.',
-          );
-        }
-        return {
-          ...base,
-          netTransactionValue: providedNTV,
-          valueMode: 'components',
-          units: providedUnits,
-          unitPrice: calculateUnitPrice({
-            transactionType: type,
-            units: providedUnits,
-            fees,
-            ntv: providedNTV,
-          }),
-          fees,
-          type,
-        } satisfies TransactionRecordWithComponents;
-      }
-
-      // Only NTV is provided; none of the components. This is only legal for some transaction types.
-      if (!isNetValueOnlyTransactionType(type)) {
-        throw new Error(
-          `Net-only transaction rows are only supported for ${[
-            ...NET_VALUE_ONLY_TRANSACTION_TYPES,
-          ].join(', ')}.`,
-        );
-      }
-
-      return {
-        ...base,
-        valueMode: 'netOnly',
-        netTransactionValue: providedNTV,
-        fees,
-        type,
-      } satisfies TransactionRecordNetOnly;
-    }
-
-    throw new Error(
-      `Incomplete transaction data. Please make sure the provided unitPrice=${providedUnitPrice}, units=${providedUnits}, and netTransactionValue=${providedNTV} makes sense for this transaction type=${type}.`,
-    );
+      type,
+      units: providedUnits,
+      unitPrice: providedUnitPrice,
+      netTransactionValue: providedNTV,
+      fees,
+    });
   } catch (error) {
     throw new Error(
       `[row: ${rowNumber}]: Failed to parse the transaction record.\n${formatErrorCause(error)}`,
