@@ -1,6 +1,6 @@
 import { Money } from './money';
 import { Shares } from './shares';
-import type { TransactionRecord } from './transaction_record';
+import { TRANSACTION_TYPE_SELL, type Ticker, type TransactionRecord } from './transaction_record';
 import type {
   AggregateResult,
   PortfolioPositions,
@@ -50,5 +50,27 @@ export function calculateAggregates(transactions: readonly TransactionRecord[]):
       aggregates: <PortfolioPositions>{},
       effects: new Array<PostTradeSnapshot>(),
     },
+  );
+}
+
+export function calculatePendingGainsByTicker(
+  records: readonly [TransactionRecord, PostTradeSnapshot][],
+  year: number,
+): Record<Ticker, Money> {
+  return records.reduce(
+    (acc, [transaction, effect]) => {
+      if (transaction.type !== TRANSACTION_TYPE_SELL) {
+        return acc;
+      }
+
+      if (transaction.date.getFullYear() !== year) {
+        return acc;
+      }
+
+      const current = acc[transaction.ticker] ?? Money.zero();
+      acc[transaction.ticker] = current.add(effect.gain ?? Money.zero());
+      return acc;
+    },
+    {} as Record<Ticker, Money>,
   );
 }

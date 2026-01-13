@@ -1,7 +1,8 @@
 import { calculateColumnIndices, parseTransactionRecord } from './parser';
-import { calculateAggregates } from './aggregation';
+import { calculateAggregates, calculatePendingGainsByTicker } from './aggregation';
 import type { SheetRow, SheetTable } from './g_sheet_types';
 import { Shares } from './shares';
+import { zipArrays } from './utils';
 
 /**
  * Calculates the ACB per unit for a ticker.
@@ -48,7 +49,7 @@ export function UNITS_OWNED(ticker: string, data: SheetTable): number {
 /**
  * Generates a report of all tickers with units owned.
  * @param {SheetTable} data Transaction table including a header row.
- * @return {SheetTable} Rows of [Ticker, Units Owned, ACB, ACB Per Unit].
+ * @return {SheetTable} Rows of [Ticker, Units Owned, ACB, ACB Per Unit, Pending Capital Gain (CY)].
  * @customfunction
  */
 export function ASSET_REPORT(data: SheetTable): SheetTable {
@@ -60,15 +61,24 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
     .slice(1)
     .map((row: SheetRow, i: number) => parseTransactionRecord(i + 2, row, columnIndices));
 
-  const aggregatedTable = [...Object.entries(calculateAggregates(transactions).aggregates)]
+  const { aggregates, effects } = calculateAggregates(transactions);
+  const currentYear = new Date().getFullYear();
+  const pendingGainsByTicker = calculatePendingGainsByTicker(
+    zipArrays(transactions, effects),
+    currentYear,
+  );
+
+  const aggregatedTable = [...Object.entries(aggregates)]
     .filter(([_ticker, aggregated]) => aggregated.unitsOwned.gt(Shares.zero()))
     .map(([ticker, aggregated]) => {
       const acbPerUnit = aggregated.totalCost.divide(aggregated.unitsOwned.valueOf());
+      const pendingGain = pendingGainsByTicker[ticker];
       return [
         ticker,
         {
           ...aggregated,
           acbPerUnit,
+          pendingGain,
         },
       ] as const;
     })
@@ -82,11 +92,17 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
       }
     })
     .map(
-      ([ticker, { unitsOwned, totalCost, acbPerUnit }]) =>
-        [ticker, unitsOwned.valueOf(), totalCost.valueOf(), acbPerUnit.valueOf()] as const,
+      ([ticker, { unitsOwned, totalCost, acbPerUnit, pendingGain }]) =>
+        [
+          ticker,
+          unitsOwned.valueOf(),
+          totalCost.valueOf(),
+          acbPerUnit.valueOf(),
+          pendingGain?.valueOf() ?? 0,
+        ] as const,
     );
 
-  const titleColumn = ['Ticker', 'Units Owned', 'ACB', 'ACB Per Unit'];
+  const titleColumn = ['Ticker', 'Units Owned', 'ACB', 'ACB Per Unit', 'Pending Capital Gain (CY)'];
   return [titleColumn, ...aggregatedTable];
 }
 

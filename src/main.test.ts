@@ -13,11 +13,12 @@ describe('ACB calculations', () => {
 });
 
 describe('Transaction effects and reports', () => {
+  const currentYear = new Date().getFullYear();
   const data = [
     ['Type', 'Date', 'Ticker', 'Account', 'Units', 'Fees', 'Unit Price', 'Net Transaction Value'],
-    ['BUY', new Date('2021-05-20'), 'TSE:VEQT', 'Wealthsimple', 10, 0, 10, -100],
-    ['BUY', new Date('2021-05-20'), 'TSE:VEQT', 'Questrade', 10, 0, 12, -120],
-    ['SELL', new Date('2021-06-01'), 'TSE:VEQT', 'Wealthsimple', 5, 0, 15, 75],
+    ['BUY', new Date(currentYear, 4, 20), 'TSE:VEQT', 'Wealthsimple', 10, 0, 10, -100],
+    ['BUY', new Date(currentYear, 4, 20), 'TSE:VEQT', 'Questrade', 10, 0, 12, -120],
+    ['SELL', new Date(currentYear, 5, 1), 'TSE:VEQT', 'Wealthsimple', 5, 0, 15, 75],
   ];
 
   it('emits global effects for each transaction', () => {
@@ -46,10 +47,17 @@ describe('Transaction effects and reports', () => {
   it('reports global aggregates in asset report', () => {
     const report = ASSET_REPORT(data);
 
-    expect(report[0]).toEqual(['Ticker', 'Units Owned', 'ACB', 'ACB Per Unit']);
+    expect(report[0]).toEqual([
+      'Ticker',
+      'Units Owned',
+      'ACB',
+      'ACB Per Unit',
+      'Pending Capital Gain (CY)',
+    ]);
     expect(report[1][0]).toBe('TSE:VEQT');
     expect(report[1][1]).toBe(15);
     expect(report[1][2]).toBe(165);
     expect(report[1][3]).toBeCloseTo(165 / 15, 6);
+    expect(report[1][4]).toBe(20);
   });
 });

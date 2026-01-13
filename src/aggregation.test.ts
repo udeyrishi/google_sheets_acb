@@ -1,4 +1,4 @@
-import { calculateAggregates } from './aggregation';
+import { calculateAggregates, calculatePendingGainsByTicker } from './aggregation';
 import type { PostTradeSnapshot, PortfolioPositions, PositionSnapshot } from './aggregation_types';
 import { Money } from './money';
 import { Shares } from './shares';
@@ -10,93 +10,94 @@ import type {
   TransactionRecordWithComponents,
   TransactionType,
 } from './transaction_record';
+import { zipArrays } from './utils';
+
+const NET_VALUE_SIGN_BY_TYPE: Partial<Record<TransactionType, number>> = {
+  TRF_IN: 1,
+  SELL: 1,
+  STK_RWD: 1,
+  BUY: -1,
+  DRIP: -1,
+  TRF_OUT: -1,
+};
+
+function toMoney(value: Money | number | undefined): Money | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value instanceof Money) {
+    return value;
+  }
+  return new Money(value);
+}
+
+function toShares(value: number): Shares {
+  return new Shares(value);
+}
+
+function txComponents({
+  row,
+  type,
+  date,
+  ticker = 'TSE:AAA',
+  units,
+  unitPrice = 0,
+  fees,
+  netTransactionValue,
+}: {
+  row: number;
+  type: TransactionType;
+  date: Date;
+  ticker?: Ticker;
+  units: number;
+  unitPrice?: Money | number;
+  fees?: Money | number;
+  netTransactionValue?: Money | number;
+}): TransactionRecordWithComponents {
+  const sign = NET_VALUE_SIGN_BY_TYPE[type] ?? 0;
+  const unitPriceMoney = toMoney(unitPrice) ?? new Money(0);
+  const feesMoney = toMoney(fees);
+  const computedNet =
+    netTransactionValue ??
+    unitPriceMoney.multiply(units * sign).subtract(feesMoney ?? Money.zero());
+
+  return {
+    row,
+    type,
+    date,
+    ticker,
+    units: toShares(units),
+    unitPrice: unitPriceMoney,
+    fees: feesMoney,
+    netTransactionValue: toMoney(computedNet),
+    valueMode: 'components',
+  };
+}
+
+function txNetOnly({
+  row,
+  type,
+  date,
+  ticker = 'TSE:AAA',
+  netTransactionValue,
+}: {
+  row: number;
+  type: NetValueOnlyTransactionType;
+  date: Date;
+  ticker?: Ticker;
+  netTransactionValue: Money | number;
+}): TransactionRecordNetOnly {
+  return {
+    row,
+    type,
+    date,
+    ticker,
+    netTransactionValue: toMoney(netTransactionValue),
+    valueMode: 'netOnly',
+  };
+}
 
 describe('calculateAggregates', () => {
-  function toMoney(value: Money | number | undefined): Money | undefined {
-    if (value === undefined) {
-      return undefined;
-    }
-    if (value instanceof Money) {
-      return value;
-    }
-    return new Money(value);
-  }
-
-  function toShares(value: number): Shares {
-    return new Shares(value);
-  }
-
-  function txComponents({
-    row,
-    type,
-    date,
-    ticker = 'TSE:AAA',
-    units,
-    unitPrice = 0,
-    fees,
-    netTransactionValue,
-  }: {
-    row: number;
-    type: TransactionType;
-    date: Date;
-    ticker?: Ticker;
-    units: number;
-    unitPrice?: Money | number;
-    fees?: Money | number;
-    netTransactionValue?: Money | number;
-  }): TransactionRecordWithComponents {
-    const NET_VALUE_SIGN_BY_TYPE: Partial<Record<TransactionType, number>> = {
-      TRF_IN: 1,
-      SELL: 1,
-      STK_RWD: 1,
-      BUY: -1,
-      DRIP: -1,
-      TRF_OUT: -1,
-    };
-
-    const sign = NET_VALUE_SIGN_BY_TYPE[type] ?? 0;
-    const unitPriceMoney = toMoney(unitPrice) ?? new Money(0);
-    const feesMoney = toMoney(fees);
-    const computedNet =
-      netTransactionValue ??
-      unitPriceMoney.multiply(units * sign).subtract(feesMoney ?? Money.zero());
-
-    return {
-      row,
-      type,
-      date,
-      ticker,
-      units: toShares(units),
-      unitPrice: unitPriceMoney,
-      fees: feesMoney,
-      netTransactionValue: toMoney(computedNet),
-      valueMode: 'components',
-    };
-  }
-
-  function txNetOnly({
-    row,
-    type,
-    date,
-    ticker = 'TSE:AAA',
-    netTransactionValue,
-  }: {
-    row: number;
-    type: NetValueOnlyTransactionType;
-    date: Date;
-    ticker?: Ticker;
-    netTransactionValue: Money | number;
-  }): TransactionRecordNetOnly {
-    return {
-      row,
-      type,
-      date,
-      ticker,
-      netTransactionValue: toMoney(netTransactionValue),
-      valueMode: 'netOnly',
-    };
-  }
-
   it('computes global ACB, units, and gains for buys and sells', () => {
     const transactions: TransactionRecord[] = [
       txComponents({ row: 2, type: 'BUY', date: new Date('2021-05-20'), units: 10, unitPrice: 10 }),
@@ -546,5 +547,51 @@ describe('calculateAggregates', () => {
         }),
       ]),
     ).toThrow(/Transaction date is less/);
+  });
+});
+
+describe('calculatePendingGainsByTicker', () => {
+  it('sums sell gains per ticker for the requested year', () => {
+    const transactions: TransactionRecord[] = [
+      txComponents({ row: 2, type: 'BUY', date: new Date('2022-01-01'), units: 10, unitPrice: 10 }),
+      txComponents({
+        row: 3,
+        type: 'SELL',
+        date: new Date('2022-02-01'),
+        units: 5,
+        unitPrice: 12,
+      }),
+      txComponents({
+        row: 4,
+        type: 'BUY',
+        date: new Date('2022-02-15'),
+        ticker: 'TSE:BBB',
+        units: 4,
+        unitPrice: 20,
+      }),
+      txComponents({
+        row: 5,
+        type: 'SELL',
+        date: new Date('2022-03-01'),
+        ticker: 'TSE:BBB',
+        units: 4,
+        unitPrice: 18,
+      }),
+      txNetOnly({ row: 6, type: 'NCDIS', date: new Date('2022-04-01'), netTransactionValue: 5 }),
+      txComponents({
+        row: 7,
+        type: 'SELL',
+        date: new Date('2023-01-01'),
+        units: 1,
+        unitPrice: 11,
+      }),
+    ];
+
+    const { effects } = calculateAggregates(transactions);
+    const pending = calculatePendingGainsByTicker(zipArrays(transactions, effects), 2022);
+
+    expect(pending['TSE:AAA']).toEqual(new Money(10));
+    expect(pending['TSE:BBB']).toEqual(new Money(-8));
+    expect(pending['TSE:CCC']).toBeUndefined();
   });
 });

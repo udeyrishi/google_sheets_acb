@@ -14,7 +14,8 @@ Once built and deployed, you will have access to these custom functions in your 
 - `=ACB_UNIT("TSE:VEQT", A1:H100)` -> Returns the ACB per unit for the given ticker.
 - `=UNITS_OWNED("TSE:VEQT", A1:H100)` -> Returns the total units owned for the given ticker.
 - `=ASSET_REPORT(A1:H100)` -> Returns a table containing the final asset report for all tickers. This report
-  shows the final ACB, ACB per unit, and units owned for all the tickers after applying all the transactions in the dataset.
+  shows the final ACB, ACB per unit, units owned, and pending capital gain for the current calendar year
+  after applying all the transactions in the dataset.
 - `=TRANSACTION_EFFECTS(A1:H100)` -> Returns a table containing the effects of each transaction (ordered). Each effect includes the
   post-transaction ACB, ACB per unit, updated total units owned, and gain/loss (if applicable). The output table has the same number
   of rows as the input data, matching the input 1:1.
