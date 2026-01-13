@@ -102,7 +102,13 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
         ] as const,
     );
 
-  const titleColumn = ['Ticker', 'Units Owned', 'ACB', 'ACB Per Unit', 'Pending Capital Gain (CY)'];
+  const titleColumn = [
+    'Ticker',
+    'Units Owned',
+    'ACB',
+    'ACB Per Unit',
+    `Realized Capital Gain (${currentYear})`,
+  ];
   return [titleColumn, ...aggregatedTable];
 }
 

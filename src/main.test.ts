@@ -52,7 +52,7 @@ describe('Transaction effects and reports', () => {
       'Units Owned',
       'ACB',
       'ACB Per Unit',
-      'Pending Capital Gain (CY)',
+      `Realized Capital Gain (${currentYear})`,
     ]);
     expect(report[1][0]).toBe('TSE:VEQT');
     expect(report[1][1]).toBe(15);
