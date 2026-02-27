@@ -199,17 +199,23 @@ describe('calculateAggregates', () => {
     ]);
   });
 
-  it('treats STK_RWD as units-only', () => {
+  it('STK_RWD updates the units owned and the ACB', () => {
     const transactions = [
       txComponents({ row: 2, type: 'BUY', date: new Date('2022-01-01'), units: 10, unitPrice: 10 }),
-      txComponents({ row: 3, type: 'STK_RWD', date: new Date('2022-01-02'), units: 3 }),
+      txComponents({
+        row: 3,
+        type: 'STK_RWD',
+        date: new Date('2022-01-02'),
+        units: 3,
+        unitPrice: 11,
+      }),
     ];
 
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
       { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(13), totalCost: new Money(100) },
+      { unitsOwned: new Shares(13), totalCost: new Money(133) },
     ]);
   });
 

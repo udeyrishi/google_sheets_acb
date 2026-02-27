@@ -152,9 +152,15 @@ const applyStakeReward: TransactionReducer = (prev, transaction) => {
     throw new Error(`STK_RWD transactions need components.`);
   }
 
+  if (transaction.netTransactionValue.lt(Money.zero())) {
+    throw new Error(
+      `STK_RWD transactions were expected to have a positive NTV conventionally to indicate an earning event.`,
+    );
+  }
+
   return {
     unitsOwned: prev.unitsOwned.add(transaction.units),
-    totalCost: prev.totalCost,
+    totalCost: prev.totalCost.add(transaction.netTransactionValue),
   };
 };
 
