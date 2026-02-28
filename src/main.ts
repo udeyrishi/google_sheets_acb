@@ -1,5 +1,9 @@
 import { calculateColumnIndices, parseTransactionRecord } from './parser';
-import { calculateAggregates, calculatePendingGainsByTicker } from './aggregation';
+import {
+  calculateAggregates,
+  calculateIncomeIncurredByTicker,
+  calculatePendingGainsByTicker,
+} from './aggregation';
 import type { SheetRow, SheetTable } from './g_sheet_types';
 import { Shares } from './shares';
 import { zipArrays } from './utils';
@@ -49,7 +53,7 @@ export function UNITS_OWNED(ticker: string, data: SheetTable): number {
 /**
  * Generates a report of all tickers with units owned.
  * @param {SheetTable} data Transaction table including a header row.
- * @return {SheetTable} Rows of [Ticker, Units Owned, ACB, ACB Per Unit, Pending Capital Gain (CY)].
+ * @return {SheetTable} Rows of [Ticker, Units Owned, ACB, ACB Per Unit, Realized Capital Gain (CY), Incurred Income (CY)].
  * @customfunction
  */
 export function ASSET_REPORT(data: SheetTable): SheetTable {
@@ -63,22 +67,30 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
 
   const { aggregates, effects } = calculateAggregates(transactions);
   const currentYear = new Date().getFullYear();
+
+  const transactionAndTheirEffects = zipArrays(transactions, effects);
+
   const pendingGainsByTicker = calculatePendingGainsByTicker(
-    zipArrays(transactions, effects),
+    transactionAndTheirEffects,
     currentYear,
   );
+
+  const incomeByTicker = calculateIncomeIncurredByTicker(transactionAndTheirEffects, currentYear);
 
   const aggregatedTable = [...Object.entries(aggregates)]
     .filter(([_ticker, aggregated]) => aggregated.unitsOwned.gt(Shares.zero()))
     .map(([ticker, aggregated]) => {
       const acbPerUnit = aggregated.totalCost.divide(aggregated.unitsOwned.valueOf());
       const pendingGain = pendingGainsByTicker[ticker];
+      const income = incomeByTicker[ticker];
+
       return [
         ticker,
         {
           ...aggregated,
           acbPerUnit,
           pendingGain,
+          income,
         },
       ] as const;
     })
@@ -92,13 +104,14 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
       }
     })
     .map(
-      ([ticker, { unitsOwned, totalCost, acbPerUnit, pendingGain }]) =>
+      ([ticker, { unitsOwned, totalCost, acbPerUnit, pendingGain, income }]) =>
         [
           ticker,
           unitsOwned.valueOf(),
           totalCost.valueOf(),
           acbPerUnit.valueOf(),
           pendingGain?.valueOf() ?? 0,
+          income?.valueOf() ?? 0,
         ] as const,
     );
 
@@ -108,6 +121,7 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
     'ACB',
     'ACB Per Unit',
     `Realized Capital Gain (${currentYear})`,
+    `Incurred Income (${currentYear})`,
   ];
   return [titleColumn, ...aggregatedTable];
 }
@@ -115,7 +129,7 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
 /**
  * Generates per-transaction effects with global ACB values.
  * @param {SheetTable} data Transaction table including a header row.
- * @return {SheetTable} Rows of [ACB, ACB Per Unit, Total Units Owned, Gain].
+ * @return {SheetTable} Rows of [ACB, ACB Per Unit, Total Units Owned, Gain, Income].
  * @customfunction
  */
 export function TRANSACTION_EFFECTS(data: SheetTable): SheetTable {
@@ -128,13 +142,14 @@ export function TRANSACTION_EFFECTS(data: SheetTable): SheetTable {
     .map((row, i) => parseTransactionRecord(i + 2, row, columnIndices));
 
   const { effects } = calculateAggregates(transactions);
-  const titleColumn = ['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain'];
-  const formattedTable = effects.map(({ unitsOwned, totalCost, gain }) => {
+  const titleColumn = ['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain', 'Income'];
+  const formattedTable = effects.map(({ unitsOwned, totalCost, gain, income }) => {
     return [
       totalCost.valueOf(),
       unitsOwned.gt(Shares.zero()) ? totalCost.divide(unitsOwned.valueOf()).valueOf() : 0,
       unitsOwned.valueOf(),
       gain?.valueOf(),
+      income?.valueOf(),
     ];
   });
 

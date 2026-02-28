@@ -74,3 +74,21 @@ export function calculatePendingGainsByTicker(
     {} as Record<Ticker, Money>,
   );
 }
+
+export function calculateIncomeIncurredByTicker(
+  records: readonly [TransactionRecord, PostTradeSnapshot][],
+  year: number,
+): Record<Ticker, Money> {
+  return records.reduce(
+    (acc, [transaction, effect]) => {
+      if (transaction.date.getFullYear() !== year) {
+        return acc;
+      }
+
+      const current = acc[transaction.ticker] ?? Money.zero();
+      acc[transaction.ticker] = current.add(effect.income ?? Money.zero());
+      return acc;
+    },
+    {} as Record<Ticker, Money>,
+  );
+}

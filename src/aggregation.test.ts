@@ -1,4 +1,8 @@
-import { calculateAggregates, calculatePendingGainsByTicker } from './aggregation';
+import {
+  calculateAggregates,
+  calculateIncomeIncurredByTicker,
+  calculatePendingGainsByTicker,
+} from './aggregation';
 import type { PostTradeSnapshot, PortfolioPositions, PositionSnapshot } from './aggregation_types';
 import { Money } from './money';
 import { Shares } from './shares';
@@ -199,7 +203,7 @@ describe('calculateAggregates', () => {
     ]);
   });
 
-  it('STK_RWD updates the units owned and the ACB', () => {
+  it('STK_RWD updates the units owned, ACB, and income', () => {
     const transactions = [
       txComponents({ row: 2, type: 'BUY', date: new Date('2022-01-01'), units: 10, unitPrice: 10 }),
       txComponents({
@@ -215,7 +219,7 @@ describe('calculateAggregates', () => {
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
       { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(13), totalCost: new Money(133) },
+      { unitsOwned: new Shares(13), totalCost: new Money(133), income: new Money(33) },
     ]);
   });
 
@@ -599,5 +603,42 @@ describe('calculatePendingGainsByTicker', () => {
     expect(pending['TSE:AAA']).toEqual(new Money(10));
     expect(pending['TSE:BBB']).toEqual(new Money(-8));
     expect(pending['TSE:CCC']).toBeUndefined();
+  });
+});
+
+describe('calculateIncomeIncurredByTicker', () => {
+  it('sums income per ticker for the requested year', () => {
+    const transactions: TransactionRecord[] = [
+      txComponents({ row: 2, type: 'BUY', date: new Date('2022-01-01'), units: 10, unitPrice: 10 }),
+      txComponents({
+        row: 3,
+        type: 'STK_RWD',
+        date: new Date('2022-02-01'),
+        units: 2,
+        unitPrice: 5,
+      }),
+      txComponents({
+        row: 4,
+        type: 'STK_RWD',
+        date: new Date('2022-03-01'),
+        ticker: 'TSE:BBB',
+        units: 1,
+        unitPrice: 7,
+      }),
+      txComponents({
+        row: 5,
+        type: 'STK_RWD',
+        date: new Date('2023-01-01'),
+        units: 1,
+        unitPrice: 9,
+      }),
+    ];
+
+    const { effects } = calculateAggregates(transactions);
+    const income = calculateIncomeIncurredByTicker(zipArrays(transactions, effects), 2022);
+
+    expect(income['TSE:AAA']).toEqual(new Money(10));
+    expect(income['TSE:BBB']).toEqual(new Money(7));
+    expect(income['TSE:CCC']).toBeUndefined();
   });
 });
