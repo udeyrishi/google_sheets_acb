@@ -13,13 +13,21 @@ describe('ACB calculations', () => {
 });
 
 describe('Transaction effects and reports', () => {
-  const currentYear = new Date().getFullYear();
+  const currentYear = 2024;
   const data = [
     ['Type', 'Date', 'Ticker', 'Account', 'Units', 'Fees', 'Unit Price', 'Net Transaction Value'],
     ['BUY', new Date(currentYear, 4, 20), 'TSE:VEQT', 'Wealthsimple', 10, 0, 10, -100],
     ['BUY', new Date(currentYear, 4, 20), 'TSE:VEQT', 'Questrade', 10, 0, 12, -120],
     ['SELL', new Date(currentYear, 5, 1), 'TSE:VEQT', 'Wealthsimple', 5, 0, 15, 75],
   ];
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
 
   it('emits global effects for each transaction', () => {
     const effects = TRANSACTION_EFFECTS(data);
@@ -59,6 +67,8 @@ describe('Transaction effects and reports', () => {
   });
 
   it('reports global aggregates in asset report', () => {
+    jest.setSystemTime(new Date(currentYear, 4, 1));
+    const reportYear = currentYear;
     const report = ASSET_REPORT(data);
 
     expect(report[0]).toEqual([
@@ -66,14 +76,41 @@ describe('Transaction effects and reports', () => {
       'Units Owned',
       'ACB',
       'ACB Per Unit',
-      `Realized Capital Gain (${currentYear})`,
-      `Incurred Income (${currentYear})`,
+      `Realized Capital Gain (${reportYear})`,
+      `Incurred Income (${reportYear})`,
     ]);
     expect(report[1][0]).toBe('TSE:VEQT');
     expect(report[1][1]).toBe(15);
     expect(report[1][2]).toBe(165);
     expect(report[1][3]).toBeCloseTo(165 / 15, 6);
     expect(report[1][4]).toBe(20);
+    expect(report[1][5]).toBe(0);
+  });
+
+  it('reports prior calendar year before the tax deadline', () => {
+    jest.setSystemTime(new Date(2024, 3, 15));
+    const reportYear = 2023;
+    const priorYearData = [
+      ['Type', 'Date', 'Ticker', 'Account', 'Units', 'Fees', 'Unit Price', 'Net Transaction Value'],
+      ['BUY', new Date(2023, 4, 20), 'TSE:AAA', 'Wealthsimple', 10, 0, 10, -100],
+      ['SELL', new Date(2023, 5, 1), 'TSE:AAA', 'Wealthsimple', 5, 0, 15, 75],
+    ];
+
+    const report = ASSET_REPORT(priorYearData);
+
+    expect(report[0]).toEqual([
+      'Ticker',
+      'Units Owned',
+      'ACB',
+      'ACB Per Unit',
+      `Realized Capital Gain (${reportYear})`,
+      `Incurred Income (${reportYear})`,
+    ]);
+    expect(report[1][0]).toBe('TSE:AAA');
+    expect(report[1][1]).toBe(5);
+    expect(report[1][2]).toBe(50);
+    expect(report[1][3]).toBeCloseTo(10, 6);
+    expect(report[1][4]).toBe(25);
     expect(report[1][5]).toBe(0);
   });
 });

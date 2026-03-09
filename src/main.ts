@@ -6,7 +6,7 @@ import {
 } from './aggregation';
 import type { SheetRow, SheetTable } from './g_sheet_types';
 import { Shares } from './shares';
-import { zipArrays } from './utils';
+import { getTaxReportYear, zipArrays } from './utils';
 
 /**
  * Calculates the ACB per unit for a ticker.
@@ -54,6 +54,7 @@ export function UNITS_OWNED(ticker: string, data: SheetTable): number {
  * Generates a report of all tickers with units owned.
  * @param {SheetTable} data Transaction table including a header row.
  * @return {SheetTable} Rows of [Ticker, Units Owned, ACB, ACB Per Unit, Realized Capital Gain (CY), Incurred Income (CY)].
+ * Uses the current year if today is after April 30; otherwise uses the previous calendar year.
  * @customfunction
  */
 export function ASSET_REPORT(data: SheetTable): SheetTable {
@@ -66,16 +67,16 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
     .map((row: SheetRow, i: number) => parseTransactionRecord(i + 2, row, columnIndices));
 
   const { aggregates, effects } = calculateAggregates(transactions);
-  const currentYear = new Date().getFullYear();
+  const reportYear = getTaxReportYear(new Date());
 
   const transactionAndTheirEffects = zipArrays(transactions, effects);
 
   const pendingGainsByTicker = calculatePendingGainsByTicker(
     transactionAndTheirEffects,
-    currentYear,
+    reportYear,
   );
 
-  const incomeByTicker = calculateIncomeIncurredByTicker(transactionAndTheirEffects, currentYear);
+  const incomeByTicker = calculateIncomeIncurredByTicker(transactionAndTheirEffects, reportYear);
 
   const aggregatedTable = [...Object.entries(aggregates)]
     .filter(([_ticker, aggregated]) => aggregated.unitsOwned.gt(Shares.zero()))
@@ -120,8 +121,8 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
     'Units Owned',
     'ACB',
     'ACB Per Unit',
-    `Realized Capital Gain (${currentYear})`,
-    `Incurred Income (${currentYear})`,
+    `Realized Capital Gain (${reportYear})`,
+    `Incurred Income (${reportYear})`,
   ];
   return [titleColumn, ...aggregatedTable];
 }
