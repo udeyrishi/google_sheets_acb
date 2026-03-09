@@ -118,9 +118,14 @@ describe('calculateAggregates', () => {
     const { aggregates, effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(20), totalCost: new Money(220) },
-      { unitsOwned: new Shares(15), totalCost: new Money(165), gain: new Money(20) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      { unitsOwned: new Shares(20), totalCost: new Money(220), totalCostChange: new Money(120) },
+      {
+        unitsOwned: new Shares(15),
+        totalCost: new Money(165),
+        totalCostChange: new Money(-55),
+        gain: new Money(20),
+      },
     ]);
     expect(aggregates['TSE:AAA']).toEqual<PositionSnapshot>({
       unitsOwned: new Shares(15),
@@ -143,8 +148,13 @@ describe('calculateAggregates', () => {
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: Shares.zero(), totalCost: Money.zero(), gain: new Money(20) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      {
+        unitsOwned: Shares.zero(),
+        totalCost: Money.zero(),
+        totalCostChange: new Money(-100),
+        gain: new Money(20),
+      },
     ]);
   });
 
@@ -163,7 +173,7 @@ describe('calculateAggregates', () => {
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(101) },
+      { unitsOwned: new Shares(10), totalCost: new Money(101), totalCostChange: new Money(101) },
     ]);
   });
 
@@ -185,6 +195,7 @@ describe('calculateAggregates', () => {
     expect(effects[1]).toEqual<PostTradeSnapshot>({
       unitsOwned: new Shares(5),
       totalCost: new Money(50),
+      totalCostChange: new Money(-50),
       gain: new Money(7),
     });
   });
@@ -198,8 +209,8 @@ describe('calculateAggregates', () => {
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(12), totalCost: new Money(122) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      { unitsOwned: new Shares(12), totalCost: new Money(122), totalCostChange: new Money(22) },
     ]);
   });
 
@@ -218,8 +229,13 @@ describe('calculateAggregates', () => {
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(13), totalCost: new Money(133), income: new Money(33) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      {
+        unitsOwned: new Shares(13),
+        totalCost: new Money(133),
+        totalCostChange: new Money(33),
+        income: new Money(33),
+      },
     ]);
   });
 
@@ -232,8 +248,8 @@ describe('calculateAggregates', () => {
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(10), totalCost: new Money(105) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      { unitsOwned: new Shares(10), totalCost: new Money(105), totalCostChange: new Money(5) },
     ]);
   });
 
@@ -246,8 +262,8 @@ describe('calculateAggregates', () => {
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(10), totalCost: new Money(98) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      { unitsOwned: new Shares(10), totalCost: new Money(98), totalCostChange: new Money(-2) },
     ]);
   });
 
@@ -273,9 +289,9 @@ describe('calculateAggregates', () => {
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(5), totalCost: new Money(50) },
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      { unitsOwned: new Shares(5), totalCost: new Money(50), totalCostChange: new Money(-50) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(50) },
     ]);
   });
 
@@ -302,6 +318,7 @@ describe('calculateAggregates', () => {
     expect(effects[0]).toEqual<PostTradeSnapshot>({
       unitsOwned: new Shares(100),
       totalCost: new Money(15107),
+      totalCostChange: new Money(15107),
     });
     expect(effects[1].unitsOwned).toEqual(new Shares(90));
     expect(effects[1].totalCost).toEqual(new Money(13596.3));
@@ -399,10 +416,15 @@ describe('calculateAggregates', () => {
     const { aggregates, effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(5), totalCost: new Money(100) },
-      { unitsOwned: new Shares(6), totalCost: new Money(60), gain: new Money(8) },
-      { unitsOwned: new Shares(6), totalCost: new Money(122) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      { unitsOwned: new Shares(5), totalCost: new Money(100), totalCostChange: new Money(100) },
+      {
+        unitsOwned: new Shares(6),
+        totalCost: new Money(60),
+        totalCostChange: new Money(-40),
+        gain: new Money(8),
+      },
+      { unitsOwned: new Shares(6), totalCost: new Money(122), totalCostChange: new Money(22) },
     ]);
     expect(aggregates).toEqual<PortfolioPositions>({
       'TSE:AAA': { unitsOwned: new Shares(6), totalCost: new Money(60) },
@@ -449,10 +471,20 @@ describe('calculateAggregates', () => {
     const { effects } = calculateAggregates(transactions);
 
     expect(effects).toEqual<readonly PostTradeSnapshot[]>([
-      { unitsOwned: new Shares(10), totalCost: new Money(100) },
-      { unitsOwned: new Shares(10), totalCost: new Money(300) },
-      { unitsOwned: new Shares(6), totalCost: new Money(180), gain: new Money(-20) },
-      { unitsOwned: new Shares(6), totalCost: new Money(60), gain: new Money(8) },
+      { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(100) },
+      { unitsOwned: new Shares(10), totalCost: new Money(300), totalCostChange: new Money(300) },
+      {
+        unitsOwned: new Shares(6),
+        totalCost: new Money(180),
+        totalCostChange: new Money(-120),
+        gain: new Money(-20),
+      },
+      {
+        unitsOwned: new Shares(6),
+        totalCost: new Money(60),
+        totalCostChange: new Money(-40),
+        gain: new Money(8),
+      },
     ]);
   });
 
@@ -628,7 +660,7 @@ describe('calculateIncomeIncurredByTicker', () => {
       txComponents({
         row: 5,
         type: 'STK_RWD',
-        date: new Date('2023-01-01'),
+        date: new Date(2023, 0, 1),
         units: 1,
         unitPrice: 9,
       }),

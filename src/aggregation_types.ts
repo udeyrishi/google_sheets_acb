@@ -10,6 +10,7 @@ export type PositionSnapshot = {
 export type PortfolioPositions = Record<Ticker, PositionSnapshot>;
 
 export type PostTradeSnapshot = PositionSnapshot & {
+  totalCostChange: Money;
   gain?: Money;
   income?: Money;
 };

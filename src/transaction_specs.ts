@@ -51,10 +51,13 @@ const applyBuy: TransactionReducer = (prev, transaction) => {
     );
   }
 
+  // NTV is signed negative for buys, but we're tracking totalCost as the absolute value.
+  const totalCostIncrease = transaction.netTransactionValue.multiply(-1);
+
   return {
     unitsOwned: prev.unitsOwned.add(transaction.units),
-    // NTV is signed negative for buys, but we're tracking totalCost as the absolute value.
-    totalCost: prev.totalCost.add(transaction.netTransactionValue.multiply(-1)),
+    totalCost: prev.totalCost.add(totalCostIncrease),
+    totalCostChange: totalCostIncrease,
   };
 };
 
@@ -76,6 +79,7 @@ const applyTrfIn: TransactionReducer = (prev, transaction) => {
     unitsOwned: prev.unitsOwned.add(transaction.units),
     // NTV is signed positive for TRF_INS (unlike buys)
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
+    totalCostChange: transaction.netTransactionValue,
   };
 };
 
@@ -111,6 +115,7 @@ const applyTrfOut: TransactionReducer = (prev, transaction) => {
   return {
     unitsOwned: prev.unitsOwned.subtract(transaction.units),
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
+    totalCostChange: transaction.netTransactionValue,
   };
 };
 
@@ -144,6 +149,7 @@ const applySell: TransactionReducer = (prev, transaction) => {
     // Do not add transaction.fees here.
     totalCost: prev.totalCost.subtract(costBase),
     gain: proceedsOfSale.subtract(costBase),
+    totalCostChange: costBase.multiply(-1),
   };
 };
 
@@ -162,6 +168,7 @@ const applyStakeReward: TransactionReducer = (prev, transaction) => {
     unitsOwned: prev.unitsOwned.add(transaction.units),
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
     income: transaction.netTransactionValue,
+    totalCostChange: transaction.netTransactionValue,
   };
 };
 
@@ -175,6 +182,7 @@ const applyNcdis: TransactionReducer = (prev, transaction) => {
   return {
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
     unitsOwned: prev.unitsOwned,
+    totalCostChange: transaction.netTransactionValue,
   };
 };
 
@@ -186,6 +194,7 @@ const applyRoc: TransactionReducer = (prev, transaction) => {
   return {
     totalCost: prev.totalCost.subtract(transaction.netTransactionValue),
     unitsOwned: prev.unitsOwned,
+    totalCostChange: transaction.netTransactionValue.multiply(-1),
   };
 };
 

@@ -129,7 +129,7 @@ export function ASSET_REPORT(data: SheetTable): SheetTable {
 /**
  * Generates per-transaction effects with global ACB values.
  * @param {SheetTable} data Transaction table including a header row.
- * @return {SheetTable} Rows of [ACB, ACB Per Unit, Total Units Owned, Gain, Income].
+ * @return {SheetTable} Rows of [ACB Change, Resulting ACB, Resulting ACB Per Unit, Resulting Units Owned, Gain, Income].
  * @customfunction
  */
 export function TRANSACTION_EFFECTS(data: SheetTable): SheetTable {
@@ -142,9 +142,17 @@ export function TRANSACTION_EFFECTS(data: SheetTable): SheetTable {
     .map((row, i) => parseTransactionRecord(i + 2, row, columnIndices));
 
   const { effects } = calculateAggregates(transactions);
-  const titleColumn = ['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain', 'Income'];
-  const formattedTable = effects.map(({ unitsOwned, totalCost, gain, income }) => {
+  const titleColumn = [
+    'ACB Change',
+    'Resulting ACB',
+    'Resulting ACB Per Unit',
+    'Resulting Units Owned',
+    'Gain',
+    'Income',
+  ];
+  const formattedTable = effects.map(({ totalCostChange, unitsOwned, totalCost, gain, income }) => {
     return [
+      totalCostChange.valueOf(),
       totalCost.valueOf(),
       unitsOwned.gt(Shares.zero()) ? totalCost.divide(unitsOwned.valueOf()).valueOf() : 0,
       unitsOwned.valueOf(),

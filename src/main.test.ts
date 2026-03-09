@@ -24,10 +24,17 @@ describe('Transaction effects and reports', () => {
   it('emits global effects for each transaction', () => {
     const effects = TRANSACTION_EFFECTS(data);
 
-    expect(effects[0]).toEqual(['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain', 'Income']);
-    expect(effects[1]).toEqual([100, 10, 10, undefined, undefined]);
-    expect(effects[2]).toEqual([220, 11, 20, undefined, undefined]);
-    expect(effects[3]).toEqual([165, 11, 15, 20, undefined]);
+    expect(effects[0]).toEqual([
+      'ACB Change',
+      'Resulting ACB',
+      'Resulting ACB Per Unit',
+      'Resulting Units Owned',
+      'Gain',
+      'Income',
+    ]);
+    expect(effects[1]).toEqual([100, 100, 10, 10, undefined, undefined]);
+    expect(effects[2]).toEqual([120, 220, 11, 20, undefined, undefined]);
+    expect(effects[3]).toEqual([-55, 165, 11, 15, 20, undefined]);
   });
 
   it('computes gain from the pre-sell global ACB on full disposals', () => {
@@ -39,9 +46,16 @@ describe('Transaction effects and reports', () => {
 
     const effects = TRANSACTION_EFFECTS(fullSellData);
 
-    expect(effects[0]).toEqual(['ACB', 'ACB Per Unit', 'Total Units Owned', 'Gain', 'Income']);
-    expect(effects[1]).toEqual([100, 10, 10, undefined, undefined]);
-    expect(effects[2]).toEqual([0, 0, 0, 20, undefined]);
+    expect(effects[0]).toEqual([
+      'ACB Change',
+      'Resulting ACB',
+      'Resulting ACB Per Unit',
+      'Resulting Units Owned',
+      'Gain',
+      'Income',
+    ]);
+    expect(effects[1]).toEqual([100, 100, 10, 10, undefined, undefined]);
+    expect(effects[2]).toEqual([-100, 0, 0, 0, 20, undefined]);
   });
 
   it('reports global aggregates in asset report', () => {

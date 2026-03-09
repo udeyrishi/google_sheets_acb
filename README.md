@@ -17,8 +17,8 @@ Once built and deployed, you will have access to these custom functions in your 
   shows the final ACB, ACB per unit, units owned, realized capital gain, and incurred income for the
   current calendar year after applying all the transactions in the dataset.
 - `=TRANSACTION_EFFECTS(A1:H100)` -> Returns a table containing the effects of each transaction (ordered). Each effect includes the
-  post-transaction ACB, ACB per unit, updated total units owned, gain/loss, and income (if applicable). The output table has the same
-  number of rows as the input data, matching the input 1:1.
+  signed ACB change, post-transaction ACB, ACB per unit, updated total units owned, gain/loss, and income (if applicable). The output
+  table has the same number of rows as the input data, matching the input 1:1.
 
 <img src="./assets/asset_report.png"/>
 <img src="./assets/transaction_effects.png"/>
