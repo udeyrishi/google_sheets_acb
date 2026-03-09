@@ -97,3 +97,19 @@ Useful commands:
 - `yarn test`: run Jest tests.
 - `yarn lint`: run ESLint.
 - `yarn build`: generate `build/Code.gs` for GAS.
+
+## License
+
+[ISC License](https://choosealicense.com/licenses/isc/)
+
+```
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+```
+
+Or, in my own words: **I am not an accountant. I am not a tax lawyer. I am definitely not _your_ accountant or _your_ tax lawyer. This program is useful to me and I am making it public because it may be useful to others but I do not warrant _in any way_ that it will compute the correct results for any particular situation (particularly esoteric situations).**
