@@ -1,4 +1,4 @@
-import { formatErrorCause, getTaxReportYear } from './utils';
+import { formatErrorCause } from './utils';
 
 describe('formatErrorCause', () => {
   it('formats non-error causes with indentation', () => {
@@ -11,15 +11,5 @@ describe('formatErrorCause', () => {
 
     expect(formatErrorCause(error)).toContain('Cause:\nError: Top failure');
     expect(formatErrorCause(error, 2)).toContain('    Cause:\n    Error: Top failure');
-  });
-});
-
-describe('getTaxReportYear', () => {
-  it('uses the previous year before or on April 30', () => {
-    expect(getTaxReportYear(new Date(2024, 3, 30))).toBe(2023);
-  });
-
-  it('uses the current year after April 30', () => {
-    expect(getTaxReportYear(new Date(2024, 4, 1))).toBe(2024);
   });
 });

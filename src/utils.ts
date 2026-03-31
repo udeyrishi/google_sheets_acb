@@ -22,12 +22,3 @@ export function zipArrays<T1, T2>(arr1: readonly T1[], arr2: readonly T2[]): [T1
 
   return arr1.map((item, i) => [item, arr2[i]] as const);
 }
-
-export function getTaxReportYear(now: Date): number {
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const day = now.getDate();
-  const isAfterTaxDeadline = month > 3 || (month === 3 && day > 30);
-
-  return isAfterTaxDeadline ? year : year - 1;
-}
