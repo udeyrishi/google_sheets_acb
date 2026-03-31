@@ -167,7 +167,6 @@ const applyStakeReward: TransactionReducer = (prev, transaction) => {
   return {
     unitsOwned: prev.unitsOwned.add(transaction.units),
     totalCost: prev.totalCost.add(transaction.netTransactionValue),
-    income: transaction.netTransactionValue,
     totalCostChange: transaction.netTransactionValue,
   };
 };

@@ -30,11 +30,10 @@ describe('Transaction effects and reports', () => {
       'Resulting ACB Per Unit',
       'Resulting Units Owned',
       'Gain',
-      'Income',
     ]);
-    expect(effects[1]).toEqual([100, 100, 10, 10, undefined, undefined]);
-    expect(effects[2]).toEqual([120, 220, 11, 20, undefined, undefined]);
-    expect(effects[3]).toEqual([-55, 165, 11, 15, 20, undefined]);
+    expect(effects[1]).toEqual([100, 100, 10, 10, undefined]);
+    expect(effects[2]).toEqual([120, 220, 11, 20, undefined]);
+    expect(effects[3]).toEqual([-55, 165, 11, 15, 20]);
   });
 
   it('computes gain from the pre-sell global ACB on full disposals', () => {
@@ -52,10 +51,9 @@ describe('Transaction effects and reports', () => {
       'Resulting ACB Per Unit',
       'Resulting Units Owned',
       'Gain',
-      'Income',
     ]);
-    expect(effects[1]).toEqual([100, 100, 10, 10, undefined, undefined]);
-    expect(effects[2]).toEqual([-100, 0, 0, 0, 20, undefined]);
+    expect(effects[1]).toEqual([100, 100, 10, 10, undefined]);
+    expect(effects[2]).toEqual([-100, 0, 0, 0, 20]);
   });
 
   it('reports global aggregates in asset report', () => {
@@ -67,13 +65,11 @@ describe('Transaction effects and reports', () => {
       'ACB',
       'ACB Per Unit',
       `Realized Capital Gain (${currentYear})`,
-      `Incurred Income (${currentYear})`,
     ]);
     expect(report[1][0]).toBe('TSE:VEQT');
     expect(report[1][1]).toBe(15);
     expect(report[1][2]).toBe(165);
     expect(report[1][3]).toBeCloseTo(165 / 15, 6);
     expect(report[1][4]).toBe(20);
-    expect(report[1][5]).toBe(0);
   });
 });
