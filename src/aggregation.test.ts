@@ -97,6 +97,58 @@ describe('calculateAggregates', () => {
     };
   }
 
+  it.each([
+    [{ ticker: 'TSE:AAA' }, ['TSE:AAA'], 4, 2],
+    [{ date: new Date('2024-01-02') }, ['TSE:AAA'], 1, 1],
+    [{ ticker: 'TSE:AAA', date: new Date('2024-01-02') }, ['TSE:AAA'], 1, 1],
+  ])(
+    'filters aggregates and effects with %o',
+    (filter, expectedRetainedTickers, units, effectCount) => {
+      const transactions = [
+        txComponents({
+          row: 2,
+          type: 'BUY',
+          date: new Date('2024-01-01'),
+          units: 1,
+          unitPrice: 10,
+        }),
+        txComponents({
+          row: 3,
+          type: 'BUY',
+          date: new Date('2024-01-02'),
+          ticker: 'TSE:BBB',
+          units: 2,
+          unitPrice: 10,
+        }),
+        txComponents({
+          row: 4,
+          type: 'BUY',
+          date: new Date('2024-01-03'),
+          units: 3,
+          unitPrice: 10,
+        }),
+      ];
+
+      const { aggregates, effects } = calculateAggregates(transactions, filter);
+
+      expect(Object.keys(aggregates)).toEqual(expectedRetainedTickers);
+      expect(aggregates['TSE:AAA'].unitsOwned.valueOf()).toBe(units);
+      expect(aggregates['TSE:AAA'].totalCost.valueOf()).toBe(units * 10);
+      expect(effects).toHaveLength(effectCount);
+    },
+  );
+
+  it('validates chronology even when the filter excludes every transaction', () => {
+    const transactions = [
+      txComponents({ row: 2, type: 'BUY', date: new Date('2024-01-02'), units: 1, unitPrice: 10 }),
+      txComponents({ row: 3, type: 'BUY', date: new Date('2024-01-01'), units: 1, unitPrice: 10 }),
+    ];
+
+    expect(() =>
+      calculateAggregates(transactions, { ticker: 'UNKNOWN', date: new Date('2023-12-31') }),
+    ).toThrow('[3]: Transaction date is less than the previous transaction date');
+  });
+
   it('computes global ACB, units, and gains for buys and sells', () => {
     const transactions: TransactionRecord[] = [
       txComponents({ row: 2, type: 'BUY', date: new Date('2021-05-20'), units: 10, unitPrice: 10 }),

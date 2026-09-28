@@ -1,6 +1,6 @@
-import { ACB_UNIT, UNITS_OWNED, UNITS_OWNED_ON, TRANSACTION_EFFECTS, ASSET_REPORT } from './main';
+import { ACB_UNIT, UNITS_OWNED, TRANSACTION_EFFECTS, ASSET_REPORT } from './main';
 
-describe('UNITS_OWNED_ON', () => {
+describe('UNITS_OWNED', () => {
   const header = [
     'Type',
     'Date',
@@ -20,38 +20,60 @@ describe('UNITS_OWNED_ON', () => {
     ['SELL', new Date('2024-01-05'), 'ABC', 'Broker B', 12, 0, 2, 24],
   ];
 
+  it('uses the full dataset when the date is omitted or undefined', () => {
+    const openPositionData = data.slice(0, -1);
+    expect(UNITS_OWNED('ABC', openPositionData)).toBe(12);
+    expect(UNITS_OWNED('ABC', openPositionData, undefined)).toBe(12);
+    expect(UNITS_OWNED('ABC', openPositionData, new Date('2024-01-01'))).toBe(0);
+    expect(UNITS_OWNED('ABC', data)).toBe(0);
+  });
+
   it.each([
     ['2023-12-31', 0],
-    ['2024-01-01', 10],
-    ['2024-01-03', 12],
+    ['2024-01-01', 0],
+    ['2024-01-03', 10],
     ['2024-01-04', 12],
-    ['2024-01-05', 0],
+    ['2024-01-05', 12],
     ['2024-02-01', 0],
-  ])('returns holdings across accounts as of %s', (date, expected) => {
-    expect(UNITS_OWNED_ON('ABC', new Date(date), data)).toBe(expected);
+  ])('returns holdings across accounts strictly before %s', (date, expected) => {
+    expect(UNITS_OWNED('ABC', data, new Date(date))).toBe(expected);
   });
 
   it('returns zero for an unknown ticker', () => {
-    expect(UNITS_OWNED_ON('UNKNOWN', new Date('2024-01-03'), data)).toBe(0);
+    expect(UNITS_OWNED('UNKNOWN', data)).toBe(0);
+    expect(UNITS_OWNED('UNKNOWN', data, new Date('2024-01-03'))).toBe(0);
   });
 
   it('returns zero for a header-only table', () => {
-    expect(UNITS_OWNED_ON('ABC', new Date('2024-01-03'), [header])).toBe(0);
+    expect(UNITS_OWNED('ABC', [header])).toBe(0);
+    expect(UNITS_OWNED('ABC', [header], new Date('2024-01-03'))).toBe(0);
   });
 
   it('ignores blank rows before, between, and after transactions', () => {
-    const paddedData = [[], header, data[1], ['', '', '', ''], ...data.slice(2), []];
-    expect(UNITS_OWNED_ON('ABC', new Date('2024-01-03'), paddedData)).toBe(12);
+    const paddedData = [
+      [],
+      header,
+      data[1],
+      ['', '', '', ''],
+      ...data.slice(2, -1),
+      ['', '', '', '', '', '', '', ''],
+      [],
+    ];
+    expect(UNITS_OWNED('ABC', paddedData)).toBe(12);
+    expect(UNITS_OWNED('ABC', paddedData, undefined)).toBe(12);
+    expect(UNITS_OWNED('ABC', paddedData, new Date('2024-01-03'))).toBe(10);
+    expect(UNITS_OWNED('ABC', paddedData, new Date('2024-01-01'))).toBe(0);
   });
 
-  it('uses an inclusive timestamp cutoff without rounding to the end of the day', () => {
+  it('excludes transactions exactly at the cutoff and includes those just before it', () => {
     const timedData = [
       header,
       ['BUY', new Date('2024-01-01T00:00:00Z'), 'ABC', 'Broker A', 1, 0, 2, -2],
       ['BUY', new Date('2024-01-01T12:00:00Z'), 'ABC', 'Broker A', 2, 0, 2, -4],
     ];
-    expect(UNITS_OWNED_ON('ABC', new Date('2024-01-01T00:00:00Z'), timedData)).toBe(1);
-    expect(UNITS_OWNED_ON('ABC', new Date('2024-01-01T12:00:00Z'), timedData)).toBe(3);
+    expect(UNITS_OWNED('ABC', timedData, new Date('2024-01-01T00:00:00Z'))).toBe(0);
+    expect(UNITS_OWNED('ABC', timedData, new Date('2024-01-01T12:00:00Z'))).toBe(1);
+    expect(UNITS_OWNED('ABC', timedData, new Date('2024-01-01T12:00:00.001Z'))).toBe(3);
   });
 
   it('preserves fractional units from purchases and reinvestments', () => {
@@ -61,8 +83,9 @@ describe('UNITS_OWNED_ON', () => {
       ['DRIP', new Date('2024-01-02'), 'ABC', 'Broker A', 0.2, 0, 10, -2],
       ['SELL', new Date('2024-01-03'), 'ABC', 'Broker A', 0.1, 0, 10, 1],
     ];
-    expect(UNITS_OWNED_ON('ABC', new Date('2024-01-02'), fractionalData)).toBeCloseTo(0.3, 10);
-    expect(UNITS_OWNED_ON('ABC', new Date('2024-01-03'), fractionalData)).toBeCloseTo(0.2, 10);
+    expect(UNITS_OWNED('ABC', fractionalData, new Date('2024-01-02'))).toBeCloseTo(0.1, 10);
+    expect(UNITS_OWNED('ABC', fractionalData, new Date('2024-01-03'))).toBeCloseTo(0.3, 10);
+    expect(UNITS_OWNED('ABC', fractionalData, new Date('2024-01-04'))).toBeCloseTo(0.2, 10);
   });
 
   it.each(['ABC', 'XYZ'])('rejects out-of-order rows for %s even after the cutoff', (ticker) => {
@@ -72,7 +95,7 @@ describe('UNITS_OWNED_ON', () => {
       ['BUY', new Date('2024-02-02'), ticker, 'Broker A', 1, 0, 2, -2],
       ['BUY', new Date('2024-02-01'), ticker, 'Broker A', 1, 0, 2, -2],
     ];
-    expect(() => UNITS_OWNED_ON('ABC', new Date('2024-01-01'), unsortedData)).toThrow(
+    expect(() => UNITS_OWNED('ABC', unsortedData, new Date('2024-01-01'))).toThrow(
       '[4]: Transaction date is less than the previous transaction date',
     );
   });
@@ -83,18 +106,19 @@ describe('UNITS_OWNED_ON', () => {
       data[1],
       ['INVALID', new Date('2024-02-01'), 'XYZ', 'Broker A', 1, 0, 2, -2],
     ];
-    expect(() => UNITS_OWNED_ON('ABC', new Date('2024-01-01'), invalidData)).toThrow(
+    expect(() => UNITS_OWNED('ABC', invalidData, new Date('2024-01-01'))).toThrow(
       'Unknown transaction type: INVALID',
     );
   });
 
-  it('propagates aggregation errors for transactions included at the cutoff', () => {
+  it('propagates aggregation errors only for transactions before the cutoff', () => {
     const oversellData = [
       header,
       data[1],
       ['SELL', new Date('2024-01-02'), 'ABC', 'Broker A', 11, 0, 2, 22],
     ];
-    expect(() => UNITS_OWNED_ON('ABC', new Date('2024-01-02'), oversellData)).toThrow(
+    expect(UNITS_OWNED('ABC', oversellData, new Date('2024-01-02'))).toBe(10);
+    expect(() => UNITS_OWNED('ABC', oversellData, new Date('2024-01-03'))).toThrow(
       'Cannot sell more units than owned.',
     );
   });

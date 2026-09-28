@@ -12,9 +12,12 @@ needed when filing your taxes.
 Once built and deployed, you will have access to these custom functions in your Google Sheet:
 
 - `=ACB_UNIT("TSE:VEQT", A1:H100)` -> Returns the ACB per unit for the given ticker.
-- `=UNITS_OWNED("TSE:VEQT", A1:H100)` -> Returns the total units owned for the given ticker.
-- `=UNITS_OWNED_ON("TSE:VEQT", DATE(2024, 12, 31), A1:H100)` -> Returns units owned across
-  accounts for the given ticker at or before the supplied date. The date can also be a date cell reference.
+- `=UNITS_OWNED("TSE:VEQT", A1:H100)` -> Returns total units owned across accounts for the given ticker.
+  An optional third argument sets an exclusive date cutoff:
+  `=UNITS_OWNED("TSE:VEQT", A1:H100, DATE(2024, 12, 31))` (a date cell reference also works).
+  Only transactions strictly before the cutoff are included; transactions exactly at it are excluded.
+  For holdings through December 31, use `DATE(2025, 1, 1)` as the cutoff.
+  Blank rows are ignored with or without a date, and no matching transactions returns `0`.
 - `=ASSET_REPORT(A1:H100)` -> Returns a table containing the final asset report for all tickers. This report
   shows the final ACB, ACB per unit, and units owned for all the tickers after applying all the transactions in the dataset.
 - `=TRANSACTION_EFFECTS(A1:H100)` -> Returns a table containing the effects of each transaction (ordered). Each effect includes the
@@ -23,18 +26,6 @@ Once built and deployed, you will have access to these custom functions in your 
 
 <img src="./assets/asset_report.png"/>
 <img src="./assets/transaction_effects.png"/>
-
-### Units owned on a date
-
-`UNITS_OWNED_ON(ticker, date, data)` includes transactions at the cutoff and excludes later
-transactions and other tickers. It returns `0` when there are no matching transactions or the
-position has been fully sold. Unlike `UNITS_OWNED`, it reports holdings at the cutoff rather
-than at the end of the dataset.
-
-The cutoff compares exact timestamps: if transaction cells include times, a date at midnight
-does not include later transactions that day. Blank rows are ignored, but the entire remaining
-table must contain valid transaction rows in chronological order, including other tickers and
-transactions after the cutoff. Rows with the same timestamp are processed in input order.
 
 ### Expected sheet layout
 

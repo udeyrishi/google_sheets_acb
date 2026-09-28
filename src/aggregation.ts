@@ -1,6 +1,6 @@
 import { Money } from './money';
 import { Shares } from './shares';
-import type { TransactionRecord } from './transaction_record';
+import type { Ticker, TransactionRecord } from './transaction_record';
 import type {
   AggregateResult,
   PortfolioPositions,
@@ -14,7 +14,7 @@ import { formatErrorCause } from './utils';
  * Checks that transaction timestamps are nondecreasing; equal timestamps are allowed.
  * @throws {Error} If a transaction precedes the previous transaction, identifying its row.
  */
-export function assertAreChronological(transactions: readonly TransactionRecord[]) {
+function assertAreChronological(transactions: readonly TransactionRecord[]) {
   let previousTransaction: TransactionRecord | undefined;
 
   for (const transaction of transactions) {
@@ -28,10 +28,25 @@ export function assertAreChronological(transactions: readonly TransactionRecord[
   }
 }
 
-export function calculateAggregates(transactions: readonly TransactionRecord[]): AggregateResult {
+/**
+ * Validates chronological order across all transactions, then aggregates matching rows.
+ * Optional ticker and exclusive date filters restrict both aggregates and effects.
+ */
+export function calculateAggregates(
+  transactions: readonly TransactionRecord[],
+  filter?: { ticker?: Ticker; date?: Date },
+): AggregateResult {
   assertAreChronological(transactions);
 
-  return transactions.reduce(
+  const scopedTransactions = filter
+    ? transactions.filter(
+        (transaction) =>
+          (filter.ticker === undefined || transaction.ticker === filter.ticker) &&
+          (filter.date === undefined || transaction.date.getTime() < filter.date.getTime()),
+      )
+    : transactions;
+
+  return scopedTransactions.reduce(
     ({ aggregates, effects }, transaction) => {
       const prev = aggregates[transaction.ticker] ?? {
         unitsOwned: Shares.zero(),
