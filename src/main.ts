@@ -1,5 +1,5 @@
 import { calculateColumnIndices, parseTransactionRecord } from './parser';
-import { calculateAggregates } from './aggregation';
+import { assertAreChronological, calculateAggregates } from './aggregation';
 import type { SheetRow, SheetTable } from './g_sheet_types';
 import { Shares } from './shares';
 
@@ -124,4 +124,37 @@ export function TRANSACTION_EFFECTS(data: SheetTable): SheetTable {
   });
 
   return [titleColumn, ...formattedTable];
+}
+
+/**
+ * Calculates units owned across accounts for a ticker at or before the given date.
+ * The cutoff is inclusive and compares exact timestamps, including any time of day.
+ * Blank rows are ignored. All remaining rows are parsed and checked for chronological
+ * order before filtering by ticker and date.
+ * @param {string} ticker The ticker symbol to report (e.g., "TSE:VEQT").
+ * @param {Date} date Inclusive cutoff, supplied as a Sheets date cell or DATE formula.
+ * @param {SheetTable} data Transaction table including a header row, in chronological order.
+ * @return {number} Units owned at the cutoff, or zero if no matching transactions exist.
+ * @throws {Error} If the table contains invalid or out-of-order transactions, or aggregation fails.
+ * @customfunction
+ */
+export function UNITS_OWNED_ON(ticker: string, date: Date, data: SheetTable): number {
+  const filledData = data.filter((row) => row.findIndex((col) => Boolean(col)) >= 0);
+
+  const columnIndices = calculateColumnIndices(filledData[0]);
+
+  const transactions = filledData
+    .slice(1)
+    .map((row, i) => parseTransactionRecord(i + 2, row, columnIndices));
+
+  assertAreChronological(transactions);
+
+  const scopedTransactions = transactions
+    .filter((transaction) => transaction.ticker === ticker)
+    .filter((transaction) => transaction.date.getTime() <= date.getTime());
+
+  const unitsOwned =
+    calculateAggregates(scopedTransactions).aggregates[ticker]?.unitsOwned.valueOf() ?? 0;
+
+  return unitsOwned;
 }

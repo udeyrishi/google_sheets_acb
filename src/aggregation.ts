@@ -10,16 +10,29 @@ import type {
 import { getTransactionSpec } from './transaction_specs';
 import { formatErrorCause } from './utils';
 
-export function calculateAggregates(transactions: readonly TransactionRecord[]): AggregateResult {
-  return transactions.reduce(
-    ({ aggregates, effects }, transaction, i) => {
-      const previousTransaction = i > 0 ? transactions[i - 1] : null;
-      if (previousTransaction && transaction.date.getTime() < previousTransaction.date.getTime()) {
-        throw new Error(
-          `[${transaction.row}]: Transaction date is less than the previous transaction date ${previousTransaction.date}`,
-        );
-      }
+/**
+ * Checks that transaction timestamps are nondecreasing; equal timestamps are allowed.
+ * @throws {Error} If a transaction precedes the previous transaction, identifying its row.
+ */
+export function assertAreChronological(transactions: readonly TransactionRecord[]) {
+  let previousTransaction: TransactionRecord | undefined;
 
+  for (const transaction of transactions) {
+    if (previousTransaction && transaction.date.getTime() < previousTransaction.date.getTime()) {
+      throw new Error(
+        `[${transaction.row}]: Transaction date is less than the previous transaction date ${previousTransaction.date}`,
+      );
+    }
+
+    previousTransaction = transaction;
+  }
+}
+
+export function calculateAggregates(transactions: readonly TransactionRecord[]): AggregateResult {
+  assertAreChronological(transactions);
+
+  return transactions.reduce(
+    ({ aggregates, effects }, transaction) => {
       const prev = aggregates[transaction.ticker] ?? {
         unitsOwned: Shares.zero(),
         totalCost: Money.zero(),
