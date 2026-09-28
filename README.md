@@ -58,6 +58,26 @@ NTV sign conventions:
 - NCDIS as positive
 - ROC as positive
 
+### Transfer fees
+
+This project treats fees on `TRF_OUT` and `TRF_IN` as costs increasing ACB. This is a
+chosen accounting convention, not a confirmed CRA treatment of brokerage transfer fees.
+
+For transfers, NTV is the signed ACB change, including fees:
+`TRF_OUT = −(units × unit price) + fees` and `TRF_IN = units × unit price + fees`.
+Other transaction types retain their existing formula of signed principal minus fees.
+Provided transfer NTV is validated against these formulas; missing NTV, unit price, or
+units are calculated using the same formulas. Do not include fees in the unit price
+when also recording them in the Fees column.
+
+For $100 of transferred cost with a $5 outgoing fee and a $2 incoming fee, enter NTVs
+of `−95` and `102` (or leave NTV blank to derive them). Those are also the ACB changes,
+increasing total ACB by $7 after the pair completes. Previously entered transfer NTVs
+that subtract fees must be updated. A full outgoing transfer temporarily leaves its
+capitalized fee in ACB even though tracked units are zero.
+Transfers still require sufficient explicit value data; inferring values from earlier
+transfers is not yet supported.
+
 ## Build and Install
 
 1. Clone and install:

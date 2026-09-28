@@ -4,6 +4,58 @@ import { Money } from './money';
 import { Shares } from './shares';
 
 describe('Parser helpers', () => {
+  it.each([
+    ['TRF_OUT', 5, -95],
+    ['TRF_IN', 2, 102],
+  ])('normalizes %s fees into NTV for every supported component combination', (type, fees, ntv) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const combinations = [
+      [10, 10, ntv],
+      [10, 10, ''],
+      [10, '', ntv],
+      ['', 10, ntv],
+    ];
+
+    for (const [units, price, value] of combinations) {
+      const record = parseTransactionRecord(
+        2,
+        [type, new Date('2024-01-01'), 'ABC', units, fees, price, value],
+        indices,
+      );
+      expect(record.valueMode).toBe('components');
+      expect(record.units).toEqual(new Shares(10));
+      expect(record.unitPrice).toEqual(new Money(10));
+      expect(record.netTransactionValue).toEqual(new Money(ntv));
+      expect(record.fees).toEqual(new Money(fees));
+    }
+  });
+
+  it.each([
+    ['TRF_OUT', 5, -105],
+    ['TRF_IN', 2, 98],
+  ])('rejects %s NTV that subtracts rather than capitalizes fees', (type, fees, ntv) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    expect(() =>
+      parseTransactionRecord(2, [type, new Date('2024-01-01'), 'ABC', 10, fees, 10, ntv], indices),
+    ).toThrow('did not match expected');
+  });
+
   it('maps column indices for normalized headers', () => {
     const headers = [
       'Type',

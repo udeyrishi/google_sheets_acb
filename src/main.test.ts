@@ -1,5 +1,34 @@
 import { ACB_UNIT, UNITS_OWNED, TRANSACTION_EFFECTS, ASSET_REPORT } from './main';
 
+describe('Transfer fees', () => {
+  const header = ['Type', 'Date', 'Ticker', 'Units', 'Unit Price', 'Fees', 'Net Transaction Value'];
+
+  it.each([
+    ['all components', 10, 10, -95, 102],
+    ['derived NTV', 10, 10, '', ''],
+    ['derived price', 10, '', -95, 102],
+    ['derived units', '', 10, -95, 102],
+  ])('adds both fees to ACB for a full transfer with %s', (_label, units, price, outNtv, inNtv) => {
+    const data = [
+      header,
+      ['BUY', new Date('2024-01-01'), 'ABC', 10, 10, 0, -100],
+      ['TRF_OUT', new Date('2024-01-02'), 'ABC', units, price, 5, outNtv],
+      ['TRF_IN', new Date('2024-01-03'), 'ABC', units, price, 2, inNtv],
+    ];
+
+    const effects = TRANSACTION_EFFECTS(data);
+    expect(effects[2]).toEqual([-95, 5, 0, 0, undefined]);
+    expect(effects[3]).toEqual([102, 107, 10.7, 10, undefined]);
+    expect(ACB_UNIT('ABC', data)).toBe(10.7);
+    expect(UNITS_OWNED('ABC', data)).toBe(10);
+  });
+
+  it('capitalizes fees on an explicitly valued seed transfer', () => {
+    const data = [header, ['TRF_IN', new Date('2024-01-01'), 'ABC', 10, 10, 2, 102]];
+    expect(TRANSACTION_EFFECTS(data)[1]).toEqual([102, 102, 10.2, 10, undefined]);
+  });
+});
+
 describe('UNITS_OWNED', () => {
   const header = [
     'Type',

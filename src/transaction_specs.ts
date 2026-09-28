@@ -64,8 +64,8 @@ const applyBuy: TransactionReducer = (prev, transaction) => {
 const applyDrip = applyBuy;
 
 // Transfers can be the first event for a ticker (e.g., external ACB seeding).
-// Treat TRF_IN/TRF_OUT as ACB changes, so paired transfers cancel but unpaired
-// transfers establish or remove cost base.
+// Transfer principal cancels across a pair; fees increase ACB by project convention.
+// Unpaired transfers establish or remove cost base.
 const applyTrfIn: TransactionReducer = (prev, transaction) => {
   if (transaction.valueMode === 'netOnly') {
     throw new Error(`TRF_IN transactions need components.`);
@@ -197,50 +197,58 @@ const applyRoc: TransactionReducer = (prev, transaction) => {
   };
 };
 
+// NTV = signed principal + signed fees. Transfers capitalize fees (+1);
+// other transaction types retain their cash-flow fee convention (-1).
 function calculateNTV({
-  cashFlowDirection,
+  principalDirection,
+  feeDirection,
   units,
   unitPrice,
   fees,
 }: {
-  cashFlowDirection: 1 | -1;
+  principalDirection: 1 | -1;
+  feeDirection: 1 | -1;
   units: Shares;
   unitPrice: Money;
   fees: Money | undefined;
 }): Money {
-  const feeValue = fees ?? Money.zero();
-  return unitPrice.multiply(units.valueOf() * cashFlowDirection).subtract(feeValue);
+  const feeValue = (fees ?? Money.zero()).multiply(feeDirection);
+  return unitPrice.multiply(units.valueOf() * principalDirection).add(feeValue);
 }
 
 function calculateUnits({
-  cashFlowDirection,
+  principalDirection,
+  feeDirection,
   ntv,
   unitPrice,
   fees,
 }: {
-  cashFlowDirection: 1 | -1;
+  principalDirection: 1 | -1;
+  feeDirection: 1 | -1;
   ntv: Money;
   unitPrice: Money;
   fees: Money | undefined;
 }): Shares {
-  const feeValue = fees ?? Money.zero();
-  const numerator = ntv.add(feeValue).multiply(cashFlowDirection);
+  const feeValue = (fees ?? Money.zero()).multiply(feeDirection);
+  const numerator = ntv.subtract(feeValue).multiply(principalDirection);
   return new Shares(numerator.divide(unitPrice));
 }
 
 function calculateUnitPrice({
-  cashFlowDirection,
+  principalDirection,
+  feeDirection,
   ntv,
   units,
   fees,
 }: {
-  cashFlowDirection: 1 | -1;
+  principalDirection: 1 | -1;
+  feeDirection: 1 | -1;
   ntv: Money;
   units: Shares;
   fees: Money | undefined;
 }): Money {
-  const feeValue = fees ?? Money.zero();
-  return ntv.add(feeValue).multiply(cashFlowDirection).divide(units.valueOf());
+  const feeValue = (fees ?? Money.zero()).multiply(feeDirection);
+  return ntv.subtract(feeValue).multiply(principalDirection).divide(units.valueOf());
 }
 
 function normalizeInternal({
@@ -254,11 +262,13 @@ function normalizeInternal({
     fees,
   },
   type,
-  cashFlowDirection,
+  principalDirection,
+  feeDirection,
 }: {
   input: NormalizationInput;
   type: TransactionType;
-  cashFlowDirection: 1 | -1;
+  principalDirection: 1 | -1;
+  feeDirection: 1 | -1;
 }): TransactionRecord {
   const base = {
     row,
@@ -268,7 +278,8 @@ function normalizeInternal({
 
   if (providedUnits !== undefined && providedUnitPrice !== undefined) {
     const expectedNTV: Money = calculateNTV({
-      cashFlowDirection,
+      principalDirection,
+      feeDirection,
       units: providedUnits,
       unitPrice: providedUnitPrice,
       fees,
@@ -301,7 +312,8 @@ function normalizeInternal({
         netTransactionValue: providedNTV,
         valueMode: 'components',
         units: calculateUnits({
-          cashFlowDirection,
+          principalDirection,
+          feeDirection,
           unitPrice: providedUnitPrice,
           fees,
           ntv: providedNTV,
@@ -322,7 +334,8 @@ function normalizeInternal({
         valueMode: 'components',
         units: providedUnits,
         unitPrice: calculateUnitPrice({
-          cashFlowDirection,
+          principalDirection,
+          feeDirection,
           units: providedUnits,
           fees,
           ntv: providedNTV,
@@ -360,11 +373,13 @@ function normalizeInternal({
 
 function createSpec({
   type,
-  cashFlowDirection,
+  principalDirection,
+  feeDirection,
   reduce,
 }: {
   type: TransactionType;
-  cashFlowDirection: 1 | -1;
+  principalDirection: 1 | -1;
+  feeDirection: 1 | -1;
   reduce: TransactionReducer;
 }): TransactionSpec {
   return {
@@ -378,7 +393,8 @@ function createSpec({
       return normalizeInternal({
         input,
         type,
-        cashFlowDirection,
+        principalDirection,
+        feeDirection,
       });
     },
     reduce,
@@ -388,42 +404,50 @@ function createSpec({
 const TRANSACTION_SPECS: Record<TransactionType, TransactionSpec> = {
   [TRANSACTION_TYPE_TRF_IN]: createSpec({
     type: TRANSACTION_TYPE_TRF_IN,
-    cashFlowDirection: 1,
+    principalDirection: 1,
+    feeDirection: 1,
     reduce: applyTrfIn,
   }),
   [TRANSACTION_TYPE_BUY]: createSpec({
     type: TRANSACTION_TYPE_BUY,
-    cashFlowDirection: -1,
+    principalDirection: -1,
+    feeDirection: -1,
     reduce: applyBuy,
   }),
   [TRANSACTION_TYPE_DRIP]: createSpec({
     type: TRANSACTION_TYPE_DRIP,
-    cashFlowDirection: -1,
+    principalDirection: -1,
+    feeDirection: -1,
     reduce: applyDrip,
   }),
   [TRANSACTION_TYPE_TRF_OUT]: createSpec({
     type: TRANSACTION_TYPE_TRF_OUT,
-    cashFlowDirection: -1,
+    principalDirection: -1,
+    feeDirection: 1,
     reduce: applyTrfOut,
   }),
   [TRANSACTION_TYPE_SELL]: createSpec({
     type: TRANSACTION_TYPE_SELL,
-    cashFlowDirection: 1,
+    principalDirection: 1,
+    feeDirection: -1,
     reduce: applySell,
   }),
   [TRANSACTION_TYPE_STAKE_REWARD]: createSpec({
     type: TRANSACTION_TYPE_STAKE_REWARD,
-    cashFlowDirection: 1,
+    principalDirection: 1,
+    feeDirection: -1,
     reduce: applyStakeReward,
   }),
   [TRANSACTION_TYPE_NON_CASH_DIST]: createSpec({
     type: TRANSACTION_TYPE_NON_CASH_DIST,
-    cashFlowDirection: 1,
+    principalDirection: 1,
+    feeDirection: -1,
     reduce: applyNcdis,
   }),
   [TRANSACTION_TYPE_RETURN_OF_CAPITAL]: createSpec({
     type: TRANSACTION_TYPE_RETURN_OF_CAPITAL,
-    cashFlowDirection: 1,
+    principalDirection: 1,
+    feeDirection: -1,
     reduce: applyRoc,
   }),
 };

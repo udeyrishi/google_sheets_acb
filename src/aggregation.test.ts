@@ -57,9 +57,10 @@ describe('calculateAggregates', () => {
     const sign = NET_VALUE_SIGN_BY_TYPE[type] ?? 0;
     const unitPriceMoney = toMoney(unitPrice) ?? new Money(0);
     const feesMoney = toMoney(fees);
+    const feeDirection = type === 'TRF_IN' || type === 'TRF_OUT' ? 1 : -1;
     const computedNet =
       netTransactionValue ??
-      unitPriceMoney.multiply(units * sign).subtract(feesMoney ?? Money.zero());
+      unitPriceMoney.multiply(units * sign).add((feesMoney ?? Money.zero()).multiply(feeDirection));
 
     return {
       row,
@@ -339,6 +340,52 @@ describe('calculateAggregates', () => {
       { unitsOwned: new Shares(5), totalCost: new Money(50), totalCostChange: new Money(-50) },
       { unitsOwned: new Shares(10), totalCost: new Money(100), totalCostChange: new Money(50) },
     ]);
+  });
+
+  it.each([
+    [5, 0, 105],
+    [0, 2, 102],
+    [5, 2, 107],
+    [0, 0, 100],
+  ])('capitalizes outgoing fee %s and incoming fee %s', (outFee, inFee, expectedAcb) => {
+    const transactions = [
+      txComponents({ row: 2, type: 'BUY', date: new Date('2024-01-01'), units: 10, unitPrice: 10 }),
+      txComponents({
+        row: 3,
+        type: 'TRF_OUT',
+        date: new Date('2024-01-02'),
+        units: 5,
+        unitPrice: 10,
+        fees: outFee,
+      }),
+      txComponents({
+        row: 4,
+        type: 'TRF_IN',
+        date: new Date('2024-01-03'),
+        units: 5,
+        unitPrice: 10,
+        fees: inFee,
+      }),
+      txComponents({
+        row: 5,
+        type: 'SELL',
+        date: new Date('2024-01-04'),
+        units: 10,
+        unitPrice: 12,
+      }),
+    ];
+
+    const { effects } = calculateAggregates(transactions);
+
+    expect(effects[1].totalCostChange.valueOf()).toBe(-50 + outFee);
+    expect(effects[1].totalCost.valueOf()).toBe(50 + outFee);
+    expect(effects[2].totalCostChange.valueOf()).toBe(50 + inFee);
+    expect(effects[2].totalCost.valueOf()).toBe(expectedAcb);
+    expect(effects[2].unitsOwned.valueOf()).toBe(10);
+    expect(effects[1].gain).toBeUndefined();
+    expect(effects[2].gain).toBeUndefined();
+    expect(effects[3].gain?.valueOf()).toBe(120 - expectedAcb);
+    expect(effects[3].totalCost.valueOf()).toBe(0);
   });
 
   it('uses TRF_IN to seed ACB when no buys exist', () => {
