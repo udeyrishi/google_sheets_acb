@@ -3,45 +3,8 @@ import { parseTransactionRecord, calculateColumnIndices } from './parser';
 import { Money } from './money';
 import { Shares } from './shares';
 
-describe('Parser helpers', () => {
-  it.each([
-    ['TRF_OUT', 5, -95],
-    ['TRF_IN', 2, 102],
-  ])('normalizes %s fees into NTV for every supported component combination', (type, fees, ntv) => {
-    const indices = calculateColumnIndices([
-      'Type',
-      'Date',
-      'Ticker',
-      'Units',
-      'Fees',
-      'Unit Price',
-      'Net Transaction Value',
-    ]);
-    const combinations = [
-      [10, 10, ntv],
-      [10, 10, ''],
-      [10, '', ntv],
-      ['', 10, ntv],
-    ];
-
-    for (const [units, price, value] of combinations) {
-      const record = parseTransactionRecord(
-        2,
-        [type, new Date('2024-01-01'), 'ABC', units, fees, price, value],
-        indices,
-      );
-      expect(record.valueMode).toBe('components');
-      expect(record.units).toEqual(new Shares(10));
-      expect(record.unitPrice).toEqual(new Money(10));
-      expect(record.netTransactionValue).toEqual(new Money(ntv));
-      expect(record.fees).toEqual(new Money(fees));
-    }
-  });
-
-  it.each([
-    ['TRF_OUT', 5, -105],
-    ['TRF_IN', 2, 98],
-  ])('rejects %s NTV that subtracts rather than capitalizes fees', (type, fees, ntv) => {
+describe('Transaction normalization', () => {
+  it('rejects zero units before computing NTV from units and price', () => {
     const indices = calculateColumnIndices([
       'Type',
       'Date',
@@ -52,10 +15,448 @@ describe('Parser helpers', () => {
       'Net Transaction Value',
     ]);
     expect(() =>
-      parseTransactionRecord(2, [type, new Date('2024-01-01'), 'ABC', 10, fees, 10, ntv], indices),
-    ).toThrow('did not match expected');
+      parseTransactionRecord(7, ['BUY', new Date('2024-01-01'), 'ABC', 0, '', 10, ''], indices),
+    ).toThrow(/^\[row: 7\]: Failed to parse the transaction record[\s\S]*Units must be positive/);
   });
 
+  it('rejects negative units before validating a fully supplied NTV', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    expect(() =>
+      parseTransactionRecord(7, ['BUY', new Date('2024-01-01'), 'ABC', -1, '', 10, 10], indices),
+    ).toThrow(/^\[row: 7\]: Failed to parse the transaction record[\s\S]*Units must be positive/);
+  });
+
+  it.each([
+    { type: 'TRF_IN', units: 0 },
+    { type: 'TRF_OUT', units: -1 },
+  ])('$type: rejects units $units before deferring valuation', ({ type, units }) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    expect(() =>
+      parseTransactionRecord(7, [type, new Date('2024-01-01'), 'ABC', units, '', '', ''], indices),
+    ).toThrow(/^\[row: 7\]: Failed to parse the transaction record[\s\S]*Units must be positive/);
+  });
+
+  it.each(['TRF_IN', 'TRF_OUT'])('%s: defers valuation when only units are supplied', (type) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      [type, new Date('2024-01-01'), 'ABC', 10, '', '', ''],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('potentiallyInferrable');
+    expect(record.units).toEqual(new Shares(10));
+    expect(record.unitPrice).toBeUndefined();
+    expect(record.netTransactionValue).toBeUndefined();
+  });
+
+  it.each([
+    { type: 'TRF_IN', ntv: 100 },
+    { type: 'TRF_OUT', ntv: -100 },
+  ])('$type: rejects NTV without units or price', ({ type, ntv }) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+
+    expect(() =>
+      parseTransactionRecord(7, [type, new Date('2024-01-01'), 'ABC', '', '', '', ntv], indices),
+    ).toThrow(
+      /^\[row: 7\]: Failed to parse the transaction record[\s\S]*Net-only transaction rows are only supported/,
+    );
+  });
+
+  it.each([0, -1, '0', '-1', 0.00000000001])(
+    'BUY: rejects supplied units %p at or below zero share precision',
+    (units) => {
+      const indices = calculateColumnIndices([
+        'Type',
+        'Date',
+        'Ticker',
+        'Units',
+        'Fees',
+        'Unit Price',
+        'Net Transaction Value',
+      ]);
+
+      expect(() =>
+        parseTransactionRecord(
+          7,
+          ['BUY', new Date('2024-01-01'), 'ABC', units, '', '', -100],
+          indices,
+        ),
+      ).toThrow(/^\[row: 7\]: Failed to parse the transaction record[\s\S]*Units must be positive/);
+    },
+  );
+
+  it.each([0, 10])('BUY: rejects nonpositive units derived from NTV %s and price 10', (ntv) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+
+    expect(() =>
+      parseTransactionRecord(7, ['BUY', new Date('2024-01-01'), 'ABC', '', '', 10, ntv], indices),
+    ).toThrow(/^\[row: 7\]: Failed to parse the transaction record[\s\S]*Units must be positive/);
+  });
+
+  it('BUY: accepts positive fractional units', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      ['BUY', new Date('2024-01-01'), 'ABC', 0.25, '', 10, ''],
+      indices,
+    );
+
+    expect(record.units).toEqual(new Shares(0.25));
+  });
+
+  it('BUY: derives missing unit price', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      ['BUY', new Date('2024-01-01'), 'ABC', 10, '', '', -100],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.units).toEqual(new Shares(10));
+    expect(record.unitPrice).toEqual(new Money(10));
+    expect(record.netTransactionValue).toEqual(new Money(-100));
+  });
+
+  it('BUY: derives missing units', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      ['BUY', new Date('2024-01-01'), 'ABC', '', '', 10, -100],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.units).toEqual(new Shares(10));
+    expect(record.unitPrice).toEqual(new Money(10));
+    expect(record.netTransactionValue).toEqual(new Money(-100));
+  });
+
+  it('NCDIS: accepts NTV without units or price', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      ['NCDIS', new Date('2024-01-01'), 'ABC', '', '', '', 100],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('netOnly');
+    expect(record.netTransactionValue).toEqual(new Money(100));
+    expect(record.units).toBeUndefined();
+  });
+
+  it('ROC: derives missing NTV', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      ['ROC', new Date('2024-01-01'), 'ABC', 10, '', 10, ''],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.units).toEqual(new Shares(10));
+    expect(record.unitPrice).toEqual(new Money(10));
+    expect(record.netTransactionValue).toEqual(new Money(100));
+  });
+});
+
+describe('Transfer normalization', () => {
+  it.each(['TRF_IN', 'TRF_OUT'])(
+    '%s: preserves fees and metadata while deferring valuation',
+    (type) => {
+      const indices = calculateColumnIndices([
+        'Type',
+        'Date',
+        'Ticker',
+        'Units',
+        'Fees',
+        'Unit Price',
+        'Net Transaction Value',
+      ]);
+      const record = parseTransactionRecord(
+        7,
+        [type, new Date('2024-01-01'), 'ABC', 1.25, 2, null, '  '],
+        indices,
+      );
+
+      expect(record).toEqual({
+        row: 7,
+        date: new Date('2024-01-01'),
+        ticker: 'ABC',
+        type,
+        valueMode: 'potentiallyInferrable',
+        units: new Shares(1.25),
+        fees: new Money(2),
+      });
+      expect(record).not.toHaveProperty('unitPrice');
+      expect(record).not.toHaveProperty('netTransactionValue');
+    },
+  );
+
+  it('TRF_IN: treats zero unit price as supplied value data', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      ['TRF_IN', new Date('2024-01-01'), 'ABC', 10, '', 0, ''],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.unitPrice).toEqual(new Money(0));
+    expect(record.netTransactionValue).toEqual(new Money(0));
+  });
+
+  it('TRF_IN: treats zero NTV as supplied value data', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      ['TRF_IN', new Date('2024-01-01'), 'ABC', 10, '', '', 0],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.unitPrice).toEqual(new Money(0));
+    expect(record.netTransactionValue).toEqual(new Money(0));
+  });
+
+  it.each([
+    { type: 'TRF_OUT', fees: 5, ntv: -95 },
+    { type: 'TRF_IN', fees: 2, ntv: 102 },
+  ])('$type: validates supplied fee-inclusive NTV', ({ type, fees, ntv }) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      [type, new Date('2024-01-01'), 'ABC', 10, fees, 10, ntv],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.units).toEqual(new Shares(10));
+    expect(record.unitPrice).toEqual(new Money(10));
+    expect(record.netTransactionValue).toEqual(new Money(ntv));
+    expect(record.fees).toEqual(new Money(fees));
+  });
+
+  it.each([
+    { type: 'TRF_OUT', fees: 5, ntv: -95 },
+    { type: 'TRF_IN', fees: 2, ntv: 102 },
+  ])('$type: adds fees when deriving NTV', ({ type, fees, ntv }) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      [type, new Date('2024-01-01'), 'ABC', 10, fees, 10, ''],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.units).toEqual(new Shares(10));
+    expect(record.unitPrice).toEqual(new Money(10));
+    expect(record.netTransactionValue).toEqual(new Money(ntv));
+    expect(record.fees).toEqual(new Money(fees));
+  });
+
+  it.each([
+    { type: 'TRF_OUT', fees: 5, ntv: -95 },
+    { type: 'TRF_IN', fees: 2, ntv: 102 },
+  ])('$type: accounts for fees when deriving price', ({ type, fees, ntv }) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      [type, new Date('2024-01-01'), 'ABC', 10, fees, '', ntv],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.units).toEqual(new Shares(10));
+    expect(record.unitPrice).toEqual(new Money(10));
+    expect(record.netTransactionValue).toEqual(new Money(ntv));
+    expect(record.fees).toEqual(new Money(fees));
+  });
+
+  it.each([
+    { type: 'TRF_OUT', fees: 5, ntv: -95 },
+    { type: 'TRF_IN', fees: 2, ntv: 102 },
+  ])('$type: accounts for fees when deriving units', ({ type, fees, ntv }) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+    const record = parseTransactionRecord(
+      7,
+      [type, new Date('2024-01-01'), 'ABC', '', fees, 10, ntv],
+      indices,
+    );
+
+    expect(record.valueMode).toBe('components');
+    expect(record.units).toEqual(new Shares(10));
+    expect(record.unitPrice).toEqual(new Money(10));
+    expect(record.netTransactionValue).toEqual(new Money(ntv));
+    expect(record.fees).toEqual(new Money(fees));
+  });
+
+  it.each([
+    { type: 'TRF_OUT', fees: 5, ntv: -105 },
+    { type: 'TRF_IN', fees: 2, ntv: 98 },
+  ])('$type: rejects NTV that subtracts fees', ({ type, fees, ntv }) => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+
+    expect(() =>
+      parseTransactionRecord(7, [type, new Date('2024-01-01'), 'ABC', 10, fees, 10, ntv], indices),
+    ).toThrow(/^\[row: 7\]: Failed to parse the transaction record[\s\S]*did not match expected/);
+  });
+
+  it('TRF_IN: rejects NTV that subtracts fees', () => {
+    const indices = calculateColumnIndices([
+      'Type',
+      'Date',
+      'Ticker',
+      'Units',
+      'Fees',
+      'Unit Price',
+      'Net Transaction Value',
+    ]);
+
+    expect(() =>
+      parseTransactionRecord(7, ['TRF_IN', new Date('2024-01-01'), 'ABC', 10, 2, 10, 98], indices),
+    ).toThrow(/^\[row: 7\]: Failed to parse the transaction record[\s\S]*did not match expected/);
+  });
+});
+
+describe('Parser helpers', () => {
   it('maps column indices for normalized headers', () => {
     const headers = [
       'Type',
@@ -472,7 +873,7 @@ describe('Parser helpers', () => {
     expect(record.units).toEqual(new Shares(10));
   });
 
-  it('accepts net-only transactions for ROC and NCDIS', () => {
+  it('accepts net-only transactions for ROC', () => {
     const headers = [
       'Type',
       'Date',
@@ -494,7 +895,7 @@ describe('Parser helpers', () => {
     expect(record.netTransactionValue).toEqual(new Money(12.5));
   });
 
-  it('allows ROC/NCDIS to carry components and computes NTV', () => {
+  it('allows NCDIS to carry components and computes NTV', () => {
     const headers = [
       'Type',
       'Date',
@@ -516,7 +917,7 @@ describe('Parser helpers', () => {
     expect(record.netTransactionValue).toEqual(new Money(6));
   });
 
-  it('rejects net-only transactions for non-ROC/NCDIS types', () => {
+  it('rejects net-only BUY transactions', () => {
     const headers = [
       'Type',
       'Date',

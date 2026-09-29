@@ -34,6 +34,7 @@ export type TransactionType = (typeof ALL_KNOWN_TRANSACTION_TYPES)[number];
  * - Have units and NTV (with optional fees) -> unitPrice can be computed
  * - Have unitPrice and NTV (with optional fees) -> units can be computed
  * - Have everything -> we can sanity check that the math is lining up
+ * - Transfers with units only (and optional fees) defer valuation to aggregation
  *
  * The following type system is modelling this expectation.
  */
@@ -45,11 +46,32 @@ export const NET_VALUE_ONLY_TRANSACTION_TYPES = [
 
 export type NetValueOnlyTransactionType = (typeof NET_VALUE_ONLY_TRANSACTION_TYPES)[number];
 
+export const POTENTIALLY_INFERRABLE_TRANSACTION_TYPES = [
+  TRANSACTION_TYPE_TRF_OUT,
+  TRANSACTION_TYPE_TRF_IN,
+] as const;
+
+export type PotentiallyInferrableTransactionType =
+  (typeof POTENTIALLY_INFERRABLE_TRANSACTION_TYPES)[number];
+
+export const areValuesInferrable = (
+  transactionType: TransactionType,
+): transactionType is PotentiallyInferrableTransactionType => {
+  return (POTENTIALLY_INFERRABLE_TRANSACTION_TYPES as readonly TransactionType[]).includes(
+    transactionType,
+  );
+};
+
+export const onlyNetValueAllowed = (
+  transactionType: TransactionType,
+): transactionType is NetValueOnlyTransactionType => {
+  return (NET_VALUE_ONLY_TRANSACTION_TYPES as readonly TransactionType[]).includes(transactionType);
+};
+
 export type TransactionRecordBase = {
   row: number;
   date: Date;
   ticker: Ticker;
-  netTransactionValue: Money;
   fees?: Money;
 };
 
@@ -58,13 +80,27 @@ export type TransactionRecordNetOnly = TransactionRecordBase & {
   type: NetValueOnlyTransactionType;
   units?: undefined;
   unitPrice?: undefined;
+  netTransactionValue: Money;
 };
 
 export type TransactionRecordWithComponents = TransactionRecordBase & {
   valueMode: 'components';
+  type: TransactionType;
   units: Shares;
   unitPrice: Money;
-  type: TransactionType;
+  netTransactionValue: Money;
 };
 
-export type TransactionRecord = TransactionRecordWithComponents | TransactionRecordNetOnly;
+/** Transfer valuation is deferred until aggregation has position or matching-transfer context. */
+export type TransactionRecordWithPotentiallyInferrableValue = TransactionRecordBase & {
+  valueMode: 'potentiallyInferrable';
+  type: PotentiallyInferrableTransactionType;
+  units: Shares;
+  unitPrice?: undefined;
+  netTransactionValue?: undefined;
+};
+
+export type TransactionRecord =
+  | TransactionRecordWithComponents
+  | TransactionRecordNetOnly
+  | TransactionRecordWithPotentiallyInferrableValue;

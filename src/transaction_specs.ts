@@ -1,6 +1,6 @@
 import { Money } from './money';
 import { Shares } from './shares';
-import type { PositionSnapshot, PostTradeSnapshot } from './aggregation_types';
+import type { AggregationContext, PositionSnapshot, PostTradeSnapshot } from './aggregation_types';
 import {
   NET_VALUE_ONLY_TRANSACTION_TYPES,
   TRANSACTION_TYPE_TRF_IN,
@@ -15,7 +15,8 @@ import {
   type TransactionRecord,
   type TransactionRecordWithComponents,
   type Ticker,
-  type NetValueOnlyTransactionType,
+  areValuesInferrable,
+  onlyNetValueAllowed,
 } from './transaction_record';
 
 type NormalizationInput = {
@@ -32,6 +33,7 @@ type NormalizationInput = {
 type TransactionReducer = (
   previousSnapshot: PositionSnapshot,
   transaction: TransactionRecord,
+  context: AggregationContext,
 ) => PostTradeSnapshot;
 
 export type TransactionSpec = {
@@ -41,7 +43,7 @@ export type TransactionSpec = {
 };
 
 const applyBuy: TransactionReducer = (prev, transaction) => {
-  if (transaction.valueMode === 'netOnly') {
+  if (transaction.valueMode !== 'components') {
     throw new Error(`BUY transactions need components.`);
   }
 
@@ -66,26 +68,57 @@ const applyDrip = applyBuy;
 // Transfers can be the first event for a ticker (e.g., external ACB seeding).
 // Transfer principal cancels across a pair; fees increase ACB by project convention.
 // Unpaired transfers establish or remove cost base.
-const applyTrfIn: TransactionReducer = (prev, transaction) => {
+const applyTrfIn: TransactionReducer = (prev, transaction, context) => {
   if (transaction.valueMode === 'netOnly') {
-    throw new Error(`TRF_IN transactions need components.`);
+    throw new Error('TRF_IN transactions need units.');
   }
 
-  if (transaction.netTransactionValue.lt(Money.zero())) {
-    throw new Error(`TRF_IN transactions were expected to have a positive NTV conventionally.`);
+  const fees = transaction.fees ?? Money.zero();
+  const explicitPrincipal =
+    transaction.valueMode === 'components'
+      ? transaction.netTransactionValue.subtract(fees)
+      : undefined;
+  const matches = context.pendingTransfers.filter(
+    (pending) =>
+      pending.ticker === transaction.ticker &&
+      pending.units.equals(transaction.units) &&
+      (explicitPrincipal === undefined || pending.principal.equals(explicitPrincipal)),
+  );
+  if (matches.length > 1) {
+    throw new Error(
+      `Ambiguous TRF_IN: matching TRF_OUT rows ${matches.map((match) => match.row).join(', ')}.`,
+    );
+  }
+  const match = matches[0];
+  if (transaction.valueMode === 'potentiallyInferrable' && !match) {
+    throw new Error(
+      'Cannot infer TRF_IN value without a matching earlier TRF_OUT for the same ticker and units. Seed transfers require unit price or NTV.',
+    );
   }
 
-  return {
+  // Restore the outgoing principal, not its fee-adjusted NTV: outgoing fees
+  // already remain in totalCost. Only incoming fees are added here.
+  const ntv =
+    transaction.valueMode === 'components'
+      ? transaction.netTransactionValue
+      : match.principal.add(fees);
+  if (ntv.lt(Money.zero())) {
+    throw new Error('TRF_IN transactions were expected to have a positive NTV conventionally.');
+  }
+  const effect = {
     unitsOwned: prev.unitsOwned.add(transaction.units),
-    // NTV is signed positive for TRF_INS (unlike buys)
-    totalCost: prev.totalCost.add(transaction.netTransactionValue),
-    totalCostChange: transaction.netTransactionValue,
+    totalCost: prev.totalCost.add(ntv),
+    totalCostChange: ntv,
   };
+  if (match) {
+    context.pendingTransfers.splice(context.pendingTransfers.indexOf(match), 1);
+  }
+  return effect;
 };
 
-const applyTrfOut: TransactionReducer = (prev, transaction) => {
+const applyTrfOut: TransactionReducer = (prev, transaction, context) => {
   if (transaction.valueMode === 'netOnly') {
-    throw new Error(`TRF_OUT transactions need components.`);
+    throw new Error('TRF_OUT transactions need units.');
   }
 
   if (prev.unitsOwned.lte(Shares.zero())) {
@@ -100,27 +133,44 @@ const applyTrfOut: TransactionReducer = (prev, transaction) => {
     );
   }
 
-  if (transaction.netTransactionValue.gt(Money.zero())) {
-    throw new Error(`TRF_OUT transactions were expected to have a negative NTV conventionally.`);
-  }
-
   const globalAcbPerUnitSoFar = prev.totalCost.divide(prev.unitsOwned.valueOf());
-
-  if (globalAcbPerUnitSoFar.notEquals(transaction.unitPrice)) {
+  if (
+    transaction.valueMode === 'components' &&
+    globalAcbPerUnitSoFar.notEquals(transaction.unitPrice)
+  ) {
     throw new Error(
       `[${transaction.row}]: globalAcbPerUnitSoFar ${globalAcbPerUnitSoFar} (${prev.totalCost} / ${prev.unitsOwned}) before the TRF_OUT transaction did not match the transaction's unitPrice ${transaction.unitPrice}.`,
     );
   }
-
-  return {
+  const ntv =
+    transaction.valueMode === 'components'
+      ? transaction.netTransactionValue
+      : calculateNTV({
+          principalDirection: -1,
+          feeDirection: 1,
+          units: transaction.units,
+          unitPrice: globalAcbPerUnitSoFar,
+          fees: transaction.fees,
+        });
+  if (ntv.gt(Money.zero())) {
+    throw new Error('TRF_OUT transactions were expected to have a negative NTV conventionally.');
+  }
+  const effect = {
     unitsOwned: prev.unitsOwned.subtract(transaction.units),
-    totalCost: prev.totalCost.add(transaction.netTransactionValue),
-    totalCostChange: transaction.netTransactionValue,
+    totalCost: prev.totalCost.add(ntv),
+    totalCostChange: ntv,
   };
+  context.pendingTransfers.push({
+    row: transaction.row,
+    ticker: transaction.ticker,
+    units: transaction.units,
+    principal: (transaction.fees ?? Money.zero()).subtract(ntv),
+  });
+  return effect;
 };
 
 const applySell: TransactionReducer = (prev, transaction) => {
-  if (transaction.valueMode === 'netOnly') {
+  if (transaction.valueMode !== 'components') {
     throw new Error(`SELL transactions need components.`);
   }
 
@@ -154,7 +204,7 @@ const applySell: TransactionReducer = (prev, transaction) => {
 };
 
 const applyStakeReward: TransactionReducer = (prev, transaction) => {
-  if (transaction.valueMode === 'netOnly') {
+  if (transaction.valueMode !== 'components') {
     throw new Error(`STK_RWD transactions need components.`);
   }
 
@@ -172,6 +222,9 @@ const applyStakeReward: TransactionReducer = (prev, transaction) => {
 };
 
 const applyNcdis: TransactionReducer = (prev, transaction) => {
+  if (transaction.valueMode === 'potentiallyInferrable') {
+    throw new Error('Only transfers can defer valuation.');
+  }
   if (transaction.netTransactionValue.lt(Money.zero())) {
     throw new Error(
       'Non-cash distributions should have a positive conventional net transaction value.',
@@ -186,6 +239,9 @@ const applyNcdis: TransactionReducer = (prev, transaction) => {
 };
 
 const applyRoc: TransactionReducer = (prev, transaction) => {
+  if (transaction.valueMode === 'potentiallyInferrable') {
+    throw new Error('Only transfers can defer valuation.');
+  }
   if (transaction.netTransactionValue.lt(Money.zero())) {
     throw new Error('Returns of capital should have a positive conventional net transaction value');
   }
@@ -212,6 +268,7 @@ function calculateNTV({
   unitPrice: Money;
   fees: Money | undefined;
 }): Money {
+  assertPositiveUnits(units);
   const feeValue = (fees ?? Money.zero()).multiply(feeDirection);
   return unitPrice.multiply(units.valueOf() * principalDirection).add(feeValue);
 }
@@ -231,7 +288,9 @@ function calculateUnits({
 }): Shares {
   const feeValue = (fees ?? Money.zero()).multiply(feeDirection);
   const numerator = ntv.subtract(feeValue).multiply(principalDirection);
-  return new Shares(numerator.divide(unitPrice));
+  const units = new Shares(numerator.divide(unitPrice));
+  assertPositiveUnits(units);
+  return units;
 }
 
 function calculateUnitPrice({
@@ -247,20 +306,26 @@ function calculateUnitPrice({
   units: Shares;
   fees: Money | undefined;
 }): Money {
+  assertPositiveUnits(units);
   const feeValue = (fees ?? Money.zero()).multiply(feeDirection);
   return ntv.subtract(feeValue).multiply(principalDirection).divide(units.valueOf());
 }
 
+/** Transaction quantities must be positive at share precision. */
+function assertPositiveUnits(units: Shares): void {
+  if (units.lte(Shares.zero())) {
+    throw new Error('Units must be positive.');
+  }
+}
+
+function incompleteTransaction(input: NormalizationInput): never {
+  throw new Error(
+    `Incomplete transaction data. Please make sure the provided unitPrice=${input.unitPrice}, units=${input.units}, and netTransactionValue=${input.netTransactionValue} makes sense for this transaction type=${input.type}.`,
+  );
+}
+
 function normalizeInternal({
-  input: {
-    row,
-    date,
-    ticker,
-    units: providedUnits,
-    unitPrice: providedUnitPrice,
-    netTransactionValue: providedNTV,
-    fees,
-  },
+  input,
   type,
   principalDirection,
   feeDirection,
@@ -270,105 +335,121 @@ function normalizeInternal({
   principalDirection: 1 | -1;
   feeDirection: 1 | -1;
 }): TransactionRecord {
+  const {
+    row,
+    date,
+    ticker,
+    units: providedUnits,
+    unitPrice: providedUnitPrice,
+    netTransactionValue: providedNTV,
+    fees,
+  } = input;
+
   const base = {
     row,
     date,
     ticker,
+    fees,
+    type,
   };
 
-  if (providedUnits !== undefined && providedUnitPrice !== undefined) {
-    const expectedNTV: Money = calculateNTV({
+  const hasProvidedUnits = providedUnits !== undefined;
+  const hasProvidedPrice = providedUnitPrice !== undefined;
+  const hasProvidedNtv = providedNTV !== undefined;
+
+  const withComponents = (
+    units: Shares,
+    unitPrice: Money,
+    netTransactionValue: Money,
+  ): TransactionRecordWithComponents => ({
+    ...base,
+    valueMode: 'components',
+    units,
+    unitPrice,
+    netTransactionValue,
+  });
+
+  if (hasProvidedUnits && hasProvidedPrice && hasProvidedNtv) {
+    const expected = calculateNTV({
       principalDirection,
       feeDirection,
+      fees,
       units: providedUnits,
       unitPrice: providedUnitPrice,
-      fees,
     });
 
-    if (providedNTV !== undefined && providedNTV.notEquals(expectedNTV)) {
+    if (providedNTV.notEquals(expected)) {
       throw new Error(
-        `Provided net transaction value ${providedNTV} did not match expected ${expectedNTV}.`,
+        `Provided net transaction value ${providedNTV} did not match expected ${expected}.`,
       );
     }
 
-    return {
-      ...base,
-      netTransactionValue: providedNTV ?? expectedNTV,
-      valueMode: 'components',
-      units: providedUnits,
-      unitPrice: providedUnitPrice,
-      fees,
-      type,
-    } satisfies TransactionRecordWithComponents;
+    return withComponents(providedUnits, providedUnitPrice, providedNTV);
   }
 
-  if (providedNTV !== undefined) {
-    if (providedUnitPrice !== undefined) {
-      if (providedUnits !== undefined) {
-        throw new Error('Dev error: No units should have been available in this code branch.');
-      }
-      return {
-        ...base,
-        netTransactionValue: providedNTV,
-        valueMode: 'components',
-        units: calculateUnits({
-          principalDirection,
-          feeDirection,
-          unitPrice: providedUnitPrice,
-          fees,
-          ntv: providedNTV,
-        }),
-        unitPrice: providedUnitPrice,
+  if (hasProvidedUnits && hasProvidedPrice && !hasProvidedNtv) {
+    return withComponents(
+      providedUnits,
+      providedUnitPrice,
+      calculateNTV({
+        principalDirection,
+        feeDirection,
         fees,
-        type,
-      } satisfies TransactionRecordWithComponents;
-    }
-
-    if (providedUnits !== undefined) {
-      if (providedUnitPrice !== undefined) {
-        throw new Error('Dev error: No unitPrice should have been available in this code branch.');
-      }
-      return {
-        ...base,
-        netTransactionValue: providedNTV,
-        valueMode: 'components',
         units: providedUnits,
-        unitPrice: calculateUnitPrice({
-          principalDirection,
-          feeDirection,
-          units: providedUnits,
-          fees,
-          ntv: providedNTV,
-        }),
-        fees,
-        type,
-      } satisfies TransactionRecordWithComponents;
-    }
-
-    const allowNetOnly = (NET_VALUE_ONLY_TRANSACTION_TYPES as readonly TransactionType[]).includes(
-      type,
+        unitPrice: providedUnitPrice,
+      }),
     );
-
-    if (!allowNetOnly) {
-      throw new Error(
-        `Net-only transaction rows are only supported for ${[
-          ...NET_VALUE_ONLY_TRANSACTION_TYPES,
-        ].join(', ')}.`,
-      );
-    }
-
-    return {
-      ...base,
-      valueMode: 'netOnly',
-      netTransactionValue: providedNTV,
-      fees,
-      type: type as NetValueOnlyTransactionType,
-    } satisfies TransactionRecord;
   }
 
-  throw new Error(
-    `Incomplete transaction data. Please make sure the provided unitPrice=${providedUnitPrice}, units=${providedUnits}, and netTransactionValue=${providedNTV} makes sense for this transaction type=${type}.`,
-  );
+  if (hasProvidedUnits && !hasProvidedPrice && hasProvidedNtv) {
+    return withComponents(
+      providedUnits,
+      calculateUnitPrice({
+        principalDirection,
+        feeDirection,
+        fees,
+        units: providedUnits,
+        ntv: providedNTV,
+      }),
+      providedNTV,
+    );
+  }
+
+  if (!hasProvidedUnits && hasProvidedPrice && hasProvidedNtv) {
+    return withComponents(
+      calculateUnits({
+        principalDirection,
+        feeDirection,
+        fees,
+        unitPrice: providedUnitPrice,
+        ntv: providedNTV,
+      }),
+      providedUnitPrice,
+      providedNTV,
+    );
+  }
+
+  if (hasProvidedUnits && !hasProvidedPrice && !hasProvidedNtv) {
+    if (areValuesInferrable(type)) {
+      assertPositiveUnits(providedUnits);
+      return { ...base, type, valueMode: 'potentiallyInferrable', units: providedUnits };
+    }
+
+    return incompleteTransaction(input);
+  }
+
+  if (!hasProvidedUnits && !hasProvidedPrice && hasProvidedNtv) {
+    if (onlyNetValueAllowed(type)) {
+      return { ...base, type, valueMode: 'netOnly', netTransactionValue: providedNTV };
+    }
+
+    throw new Error(
+      `Net-only transaction rows are only supported for ${NET_VALUE_ONLY_TRANSACTION_TYPES.join(', ')}.`,
+    );
+  }
+
+  // (!hasProvidedUnits && hasProvidedPrice && !hasProvidedNtv) || (!hasProvidedUnits && !hasProvidedPrice && !hasProvidedNtv)
+  return incompleteTransaction(input);
 }
 
 function createSpec({

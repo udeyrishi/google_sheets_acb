@@ -18,3 +18,16 @@ export type AggregateResult = {
   aggregates: PortfolioPositions;
   effects: readonly PostTradeSnapshot[];
 };
+
+/** Principal excludes outgoing fees, which are already capitalized in the position. */
+export type PendingTransfer = {
+  row: number;
+  ticker: Ticker;
+  units: Shares;
+  principal: Money;
+};
+
+/** Private to one aggregation run; successful incoming transfers consume entries once. */
+export type AggregationContext = {
+  pendingTransfers: PendingTransfer[];
+};

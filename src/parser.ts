@@ -128,6 +128,7 @@ function parseOptionalMoneyValue(value: SheetScalar, label: string): Money | und
   return parseMoneyValue(value, label);
 }
 
+/** Parses supplied cells; specs may defer units-only transfer valuation to aggregation. */
 export function parseTransactionRecord(
   rowNumber: number,
   row: SheetRow,

@@ -41,11 +41,17 @@ The data range passed to all of the above functions must include a header row wi
 
 Supported transaction types: `BUY`, `SELL`, `TRF_IN`, `TRF_OUT`, `DRIP`, `STK_RWD`, `NCDIS`, `ROC`.
 
+Units must be strictly positive when supplied or derived (at share precision).
+`NCDIS` and `ROC` net-only rows omit units entirely.
+
 Transaction rows can be:
 
 - Components provided: Units + Unit Price (+ Fees optional), NTV optional (validated if present).
 - Derived components: Units + NTV, or Unit Price + NTV (the missing piece is derived).
 - Net-only rows: only NTV for `NCDIS` and `ROC`.
+- Deferred transfer values: Units (+ Fees optional), with both Unit Price and NTV blank,
+  for `TRF_IN` and `TRF_OUT` only. Parsing accepts these rows; aggregation resolves their
+  values or reports an error if the required context is missing.
 
 NTV sign conventions:
 
@@ -75,8 +81,43 @@ of `−95` and `102` (or leave NTV blank to derive them). Those are also the ACB
 increasing total ACB by $7 after the pair completes. Previously entered transfer NTVs
 that subtract fees must be updated. A full outgoing transfer temporarily leaves its
 capitalized fee in ACB even though tracked units are zero.
-Transfers still require sufficient explicit value data; inferring values from earlier
-transfers is not yet supported.
+
+### Transfer value inference
+
+A seed `TRF_IN` establishes starting units and ACB. Supply its units and either unit price
+or NTV. A units-only seed parses successfully but fails during aggregation because no
+outgoing transfer establishes its cost.
+
+Subsequent `TRF_OUT` rows can omit both Unit Price and NTV. Aggregation uses the ticker's
+average ACB immediately before the transfer, checks that enough units are owned, and applies
+the fee formula above.
+
+A units-only `TRF_IN` must match one earlier, unconsumed `TRF_OUT` with the same ticker and
+unit count (compared at share precision). It restores the principal recorded when those units
+left and adds its own fees. This works after a full transfer or intervening transactions;
+outgoing fees have already increased ACB and are not added again on receipt.
+
+For example, these rows return to 10 units with $107 ACB:
+
+| Type          | Units | Unit Price | Fees | NTV |
+| ------------- | ----: | ---------: | ---: | --: |
+| TRF_IN (seed) |    10 |         10 |    0 |     |
+| TRF_OUT       |    10 |            |    5 |     |
+| TRF_IN        |    10 |            |    2 |     |
+
+Use `TRF_IN` as the actual Type cell for the seed. Required Date and Ticker cells are omitted
+from this illustration; use chronological rows and the same ticker for all three.
+
+Matching never splits or combines transfers. Multiple candidates produce an ambiguity error
+with the outgoing row numbers. Explicitly valued outgoing transfers also create context;
+an explicitly valued incoming transfer consumes a candidate when units and principal match.
+An explicit incoming transfer with no matching principal remains an external seed. Account
+names do not participate in matching.
+
+Each outgoing transfer can be consumed once, and context is local to each function call.
+Unmatched outgoing transfers are allowed. A date cutoff between transfer legs includes only
+the outgoing effect. Same-timestamp transfers follow input order, so put `TRF_OUT` before its
+matching `TRF_IN`.
 
 ## Build and Install
 

@@ -3,6 +3,7 @@ import { Shares } from './shares';
 import type { Ticker, TransactionRecord } from './transaction_record';
 import type {
   AggregateResult,
+  AggregationContext,
   PortfolioPositions,
   PositionSnapshot,
   PostTradeSnapshot,
@@ -46,6 +47,8 @@ export function calculateAggregates(
       )
     : transactions;
 
+  const context: AggregationContext = { pendingTransfers: [] };
+
   return scopedTransactions.reduce(
     ({ aggregates, effects }, transaction) => {
       const prev = aggregates[transaction.ticker] ?? {
@@ -56,7 +59,7 @@ export function calculateAggregates(
       const spec = getTransactionSpec(transaction.type);
 
       try {
-        const effect = spec.reduce(prev, transaction);
+        const effect = spec.reduce(prev, transaction, context);
 
         return {
           aggregates: {
